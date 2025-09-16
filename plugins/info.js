@@ -119,8 +119,8 @@ let codigo = `termux-setup-storage
 apt update
 apt upgrade
 pkg install -y git nodejs ffmpeg imagemagick yarn
-git clone https://github.com/GataNina-Li/GataBotLite-MD 
-cd GataBotLite-MD
+git clone https://github.com/JR23CR/bot-MD
+cd bot-MD
 yarn install
 npm install
 npm start`
@@ -129,15 +129,15 @@ heroku/nodejs\n
 https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git\n
 https://github.com/clhuang/heroku-buildpack-webp-binaries.git`
 let codigo3 = `
-git clone https://github.com/GataNina-Li/GataBotLite-MD
-cd GataBotLite-MD
+git clone https://github.com/JR23CR/bot-MD
+cd bot-MD
 npm install
 npm update
 node .`
 try{	
 let termux = `*◎ T E R M U X*\n\n${codigo}`
-let replit = `*◎ R E P L I T*\n\nhttps://replit.com/github/GataNina-Li/GataBotLite-MD`
-let heroku = `*◎ H E R O K U*\n\nhttps://heroku.com/deploy?template=https://github.com/GataNina-Li/GataBotMDLite-Heroku`
+let replit = `*◎ R E P L I T*\n\nhttps://replit.com/github/JR23CR/bot-MD`
+let heroku = `*◎ H E R O K U*\n\nhttps://heroku.com/deploy?template=https://github.com/JR23CR/bot-MD`
 let windows = `*◎ W I N D O W S / V P S / R D P*\n
 ⎔ _Git_
 https://git-scm.com/downloads
@@ -222,7 +222,7 @@ reportError(e)
 }     
 break
 
-//CÓDIGO CREADO GRACIAS A https://github.com/Azami19 & https://github.com/GataNina-Li
+//CÓDIGO CREADO GRACIAS A https://github.com/Azami19 & https://github.com/JR23CR
 case isCommand9:
 try{
 let contact, number, ofc, nombre, description, correo, lugar, enlace, biog
@@ -240,7 +240,7 @@ nombre = official[0][0] == String(contact[0]) ? official[0][1] : official[1][0] 
 description = official[0][0] == String(contact[0]) ? 'Solo temas de GataBot' : official[1][0] == String(contact[0]) ? lenguajeGB.smsContacto4() : official[2][0] == String(contact[0]) ? lenguajeGB.smsContacto4() : official[3][0] == String(contact[0]) ? lenguajeGB.smsContacto4() : desc === '' ? lenguajeGB.smsContacto5() : desc
 correo = official[0][0] == String(contact[0]) ? 'socialplus.gata@gamil.com' : official[1][0] == String(contact[0]) ? 'thelolibotm@gmail.com' : official[2][0] == String(contact[0]) ? 'alexismaldonado90700@gmail.com' : mail === '' ? lenguajeGB.smsContacto6() : mail
 lugar = official[0][0] == String(contact[0]) ? '🇪🇨 Ecuador' : official[1][0] == String(contact[0]) ? '🇦🇷 Argentina' : official[2][0] == String(contact[0]) ? '🇲🇽 México' : official[3][0] == String(contact[0]) ? '🇧🇷 Brazil' : country === '' ? lenguajeGB.smsContacto7() : country
-enlace = official[0][0] == String(contact[0]) ? 'https://github.com/GataNina-Li' : official[1][0] == String(contact[0]) ? 'https://github.com/elrebelde21' : official[2][0] == String(contact[0]) ? 'https://github.com/Azami19' : official[3][0] == String(contact[0]) ? 'https://github.com/Abiguelreyes75' : md    
+enlace = official[0][0] == String(contact[0]) ? 'https://github.com/JR23CR' : official[1][0] == String(contact[0]) ? 'https://github.com/elrebelde21' : official[2][0] == String(contact[0]) ? 'https://github.com/Azami19' : official[3][0] == String(contact[0]) ? 'https://github.com/Abiguelreyes75' : md
 lista.push([number, ofc, nombre, description, official[3][0] == String(contact[0]) ? null : correo, lugar, enlace, bio, official[1][0] == String(contact[0]) ? 'https://www.youtube.com/@TheLoliBot-MD' : null]) }  
 lista.push([conn.user.jid.split('@')[0], await conn.getName(conn.user.jid), packname, lenguajeGB.smsContacto8(), mail === '' ? 'centergatabot@gmail.com' : mail, lenguajeGB.smsContacto7(), md, bioBot, yt, ig, fb, paypal, nna])
 await conn.sendContactArray(m.chat, lista, null, { quoted: fkontak })

@@ -293,7 +293,7 @@ contextInfo: { externalAdReply :{ mediaUrl: null, mediaType: 1, description: nul
 title: igfg, 
 body: 'Super Bot WhatsApp',         
 previewType: 0, thumbnail: fs.readFileSync("./media/menus/Menu2.jpg"),
-sourceUrl: `https://github.com/GataNina-Li/GataBotLite-MD`}}})
+sourceUrl: `https://github.com/JR23CR/bot-MD`}}})
 if (!regex.test(args[0])) throw 'LINK INCORRECTO';
 let [_, user, repo] = args[0].match(regex) || [];
 repo = repo.replace(/.git$/, '');

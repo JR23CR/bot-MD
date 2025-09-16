@@ -1,4 +1,4 @@
-// Este código fue hecho por https://github.com/Hidekijs, modificado por https://github.com/GataNina-Li.
+// Este código fue hecho por https://github.com/Hidekijs, modificado por https://github.com/JR23CR.
 
 let { downloadContentFromMessage } = (await import('@whiskeysockets/baileys'))
 
