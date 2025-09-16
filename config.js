@@ -81,7 +81,7 @@ global.moment = moment
 
 global.packname = '𝙂𝙖𝙩𝙖𝘽𝙤𝙩𝙇𝙞𝙩𝙚-𝙈𝘿 🌻🐈'
 global.author = '𝙂𝙖𝙩𝙖 𝘿𝙞𝙤𝙨'
-global.policyGB = 'github.com/GataNina-Li/GataBot-MD/blob/master/terms.md'
+global.policyGB = 'github.com/JR23CR/bot-MD/blob/main/terms.md'
 
 // ES ➜ Está parte es para mostrar el contacto de alguien al usar #contacto
 // EN ➜ This part is to display someone's contact using #contact
@@ -122,7 +122,7 @@ global.ths = 'https://www.threads.net/@gata_dios'
 global.yt = 'https://youtube.com/@gatadios'
 global.yt2 = 'https://youtu.be/Ko019wvu2Tc'
 global.ig = 'https://www.instagram.com/gata_dios'
-global.md = 'https://github.com/GataNina-Li/GataBotLite-MD'
+global.md = 'https://github.com/JR23CR/bot-MD'
 global.fb = 'https://www.facebook.com/groups/872989990425789'
 global.paypal = 'https://paypal.me/OficialGD'
 global.asistencia = 'https://wa.me/message/MEKOUFBEOG5ED1'

@@ -6,8 +6,8 @@ El codigo de este archivo esta inspirado en el codigo original de:
 *El archivo original del MysticBot-MD fue liberado en mayo del 2024 aceptando su liberacion*
 El codigo de este archivo fue parchado en su momento por:
 - BrunoSobrino >> https://github.com/BrunoSobrino
-Contenido adaptado para GataBot-MD por:
-- GataNina-Li >> https://github.com/GataNina-Li
+Contenido adaptado para bot-MD por:
+- JR23CR >> https://github.com/JR23CR
 - elrebelde21 >> https://github.com/elrebelde21
 */
  
@@ -267,7 +267,7 @@ m?.chat ? await conn.sendMessage(m.chat, {text : `☄️ *IMPORTANTE*
 > Si se desconecta frecuentemente usa \`${usedPrefix + command}\` si el problema persiste vuelve a ser sub bot.
 
 *Política de uso:*
-github.com/GataNina-Li/GataBot-MD/blob/master/terms.md
+github.com/JR23CR/bot-MD/blob/main/terms.md
 `}, { quoted: m }) : ''
 }}
 setInterval(async () => {

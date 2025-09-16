@@ -1,4 +1,4 @@
-// Código adaptado por https://github.com/GataNina-Li
+// Código adaptado por https://github.com/JR23CR
 // Código compatible con canales y comunidades de WhatsApp 
 // También encontrarás código para comandos enfocados para canales de WhatsApp
 

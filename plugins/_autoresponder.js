@@ -58,7 +58,7 @@ O únete al grupo de soporte en WhatsApp: https://chat.whatsapp.com/GQ82mPnSYnm0
 
 Enlaces útiles:
 Donaciones PayPal: https://paypal.me/OficialGD
-GitHub oficial: https://github.com/GataNina-Li
+GitHub oficial: https://github.com/JR23CR
 Grupo en Facebook: https://www.facebook.com/groups/872989990425789
 TikTok: https://www.tiktok.com/@gata_bot
 Canal de Telegram: https://t.me/globalgb
