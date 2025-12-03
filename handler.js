@@ -219,7 +219,6 @@ const isBotAdmin = bot?.admin || false
 if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
     const groupName = groupMetadata.subject || '';
     
-    // Solo en el grupo FAMILY
     if (groupName === 'FAMILY') {
         try {
             const translationResult = await translate(m.text, { to: 'en' });
@@ -227,11 +226,9 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
             
             if (detectedLang && m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
                 if (detectedLang === 'es') {
-                    // Si está en español, traduce a inglés
                     m.reply(`*🤖 English Translation:*\n\n${translationResult.text}`);
                 } else if (detectedLang === 'en') {
-                    // Si está en inglés, traduce a español
-                    const spanishTranslation = await translate.default(m.text, { to: 'es' });
+                    const spanishTranslation = await translate(m.text, { to: 'es' });
                     if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
                         m.reply(`*🤖 Traducción al Español:*\n\n${spanishTranslation.text}`);
                     }
