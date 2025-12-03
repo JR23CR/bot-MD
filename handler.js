@@ -218,9 +218,12 @@ const isBotAdmin = bot?.admin || false
 
 if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
     const groupName = groupMetadata.subject || '';
+    console.log('📍 Grupo:', groupName);
+    console.log('📍 Nombre exacto:', JSON.stringify(groupName));
     
     if (groupName === 'FAMILY') {
         try {
+            console.log('✅ ENTRANDO A TRADUCIR');
             const translationResult = await translate(m.text, { to: 'en' });
             const detectedLang = translationResult.raw?.src;
             
