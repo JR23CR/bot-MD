@@ -8,7 +8,8 @@ import chalk from 'chalk'
 import fetch from 'node-fetch' 
 import ws from 'ws'
 import './plugins/_content.js'
-import { translate } from '@vitalets/google-translate-api'
+import pkg from '@vitalets/google-translate-api';
+const { translate } = pkg;
 
 /**
  * @type {import('@whiskeysockets/baileys')}  
