@@ -221,17 +221,23 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
     
     if (groupName === 'FAMILY') {
         try {
-            const translationResult = await translate(m.text, { to: 'en' });
-            const detectedLang = translationResult.from.language.iso;
+            let translationResult;
+            let detectedLang;
             
-            if (detectedLang && m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
-                if (detectedLang === 'es') {
+            // Primero detectamos el idioma
+            translationResult = await translate(m.text, { to: 'en' });
+            detectedLang = translationResult.from.language.iso;
+            
+            if (detectedLang === 'es') {
+                // Si es español, traduce a inglés
+                if (m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
                     m.reply(`*🤖 English Translation:*\n\n${translationResult.text}`);
-                } else if (detectedLang === 'en') {
-                    const spanishTranslation = await translate(m.text, { to: 'es' });
-                    if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
-                        m.reply(`*🤖 Traducción al Español:*\n\n${spanishTranslation.text}`);
-                    }
+                }
+            } else if (detectedLang === 'en') {
+                // Si es inglés, traduce a español
+                const spanishTranslation = await translate(m.text, { to: 'es' });
+                if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
+                    m.reply(`*🤖 Traducción al Español:*\n\n${spanishTranslation.text}`);
                 }
             }
         } catch (e) {
