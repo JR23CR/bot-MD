@@ -223,7 +223,7 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
     // Solo en el grupo FAMILY
     if (groupName === 'FAMILY') {
         try {
-            const translationResult = await translate(m.text, { to: 'en' });
+            const translationResult = await translate.default(m.text, { to: 'en' });
             const detectedLang = translationResult.raw?.src;
             
             if (detectedLang && m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
@@ -232,7 +232,7 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
                     m.reply(`*🤖 English Translation:*\n\n${translationResult.text}`);
                 } else if (detectedLang === 'en') {
                     // Si está en inglés, traduce a español
-                    const spanishTranslation = await translate(m.text, { to: 'es' });
+                    const spanishTranslation = await translate.default(m.text, { to: 'es' });
                     if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
                         m.reply(`*🤖 Traducción al Español:*\n\n${spanishTranslation.text}`);
                     }
