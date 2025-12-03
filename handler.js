@@ -8,8 +8,8 @@ import chalk from 'chalk'
 import fetch from 'node-fetch' 
 import ws from 'ws'
 import './plugins/_content.js'
-import { translate } from '@vitalets/google-translate-api';
-
+import pkg from '@vitalets/google-translate-api';
+const { translate } = pkg
 /**
  * @type {import('@whiskeysockets/baileys')}  
  */
@@ -243,7 +243,7 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
         }
     }
 }
-
+	
 m.isWABusiness = global.conn.authState?.creds?.platform === 'smba' || global.conn.authState?.creds?.platform === 'smbi'
 m.isChannel = m.chat.includes('@newsletter') || m.sender.includes('@newsletter')
 
