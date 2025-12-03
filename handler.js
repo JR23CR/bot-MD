@@ -221,14 +221,8 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
     
     if (groupName === 'FAMILY') {
         try {
-            console.log('🔄 Intentando traducir:', m.text);
-            console.log('Tipo de translate:', typeof translate);
-            
             const translationResult = await translate(m.text, { to: 'en' });
-            console.log('✅ Traducción exitosa:', translationResult);
-            
-            const detectedLang = translationResult.raw?.src;
-            console.log('🌐 Idioma detectado:', detectedLang);
+            const detectedLang = translationResult.from.language.iso;
             
             if (detectedLang && m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
                 if (detectedLang === 'es') {
@@ -241,8 +235,7 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
                 }
             }
         } catch (e) {
-            console.error('❌ Translation error:', e.message);
-            console.error('Stack:', e.stack);
+            console.error('Translation error in FAMILY group:', e);
         }
     }
 }
