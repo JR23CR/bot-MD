@@ -218,14 +218,17 @@ const isBotAdmin = bot?.admin || false
 
 if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
     const groupName = groupMetadata.subject || '';
-    console.log('📍 Grupo:', groupName);
-    console.log('📍 Nombre exacto:', JSON.stringify(groupName));
     
     if (groupName === 'FAMILY') {
         try {
-            console.log('✅ ENTRANDO A TRADUCIR');
+            console.log('🔄 Intentando traducir:', m.text);
+            console.log('Tipo de translate:', typeof translate);
+            
             const translationResult = await translate(m.text, { to: 'en' });
+            console.log('✅ Traducción exitosa:', translationResult);
+            
             const detectedLang = translationResult.raw?.src;
+            console.log('🌐 Idioma detectado:', detectedLang);
             
             if (detectedLang && m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
                 if (detectedLang === 'es') {
@@ -238,7 +241,8 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
                 }
             }
         } catch (e) {
-            console.error('Translation error in FAMILY group:', e);
+            console.error('❌ Translation error:', e.message);
+            console.error('Stack:', e.stack);
         }
     }
 }
