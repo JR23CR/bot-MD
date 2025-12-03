@@ -50,7 +50,7 @@
     "body-parser": "^1.20.2",
     "cfonts": "^3.3.0",
     "chalk": "^5.4.1",
-    "cheerio": "1.0.0-rc.12",
+    "cheerio": "1.0.0-rc.10",
     "colors": "1.4.0",
     "emoji-country-flags": "^1.0.3",
     "express": "^4.17.3",
@@ -101,6 +101,7 @@
   },
   "devDependencies": {
     "eslint": "^8.45.0",
-    "eslint-config-google": "^0.14.0"
+    "eslint-config-google": "^0.14.0",
+    "patch-package": "^8.0.1"
   }
 }
