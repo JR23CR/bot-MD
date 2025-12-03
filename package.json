@@ -101,7 +101,6 @@
   },
   "devDependencies": {
     "eslint": "^8.45.0",
-    "eslint-config-google": "^0.14.0",
-    "patch-package": "^8.0.1"
+    "eslint-config-google": "^0.14.0"
   }
 }
