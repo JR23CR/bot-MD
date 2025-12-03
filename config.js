@@ -137,6 +137,8 @@ global.canal5 = "https://whatsapp.com/channel/0029VatPwXw7Noa8n1Vinx3g"
 
 // grupos (algunos pueden estar repetidos con otros, es temporal)
 global.nna = 'https://whatsapp.com/channel/0029Va6yY0iLY6d6XDmqA03g' //CANAL UPDATE
+global.translateToEnglishGroup = "FAMILY"
+global.translateToSpanishGroup = ""
 global.nn2 = 'https://t.me/globalgb'
 global.nna2 = 'https://chat.whatsapp.com/KaTeeaexrGSHBzPm4s945b' //Help
 global.nn = 'https://chat.whatsapp.com/JRG6rVJJV40IxlI1wjQ0E9' //Grupo 1

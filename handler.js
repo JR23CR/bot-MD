@@ -8,6 +8,7 @@ import chalk from 'chalk'
 import fetch from 'node-fetch' 
 import ws from 'ws'
 import './plugins/_content.js'
+import { translate } from '@vitalets/google-translate-api'
 
 /**
  * @type {import('@whiskeysockets/baileys')}  
@@ -215,6 +216,28 @@ const bot = (m.isGroup ? participants.find(u => conn.decodeJid(u.id) == this.use
 const isRAdmin = user?.admin == 'superadmin' || false
 const isAdmin = isRAdmin || user?.admin == 'admin' || false 
 const isBotAdmin = bot?.admin || false 
+
+if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
+    const groupName = groupMetadata.subject;
+    if (groupName === global.translateToEnglishGroup) {
+        try {
+            const translationResult = await translate(m.text, { to: 'en' });
+            if (translationResult.raw.src === 'es') {
+                if (m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
+                    m.reply(`*🤖 English Translation:*\n\n${translationResult.text}`);
+                }
+            } else if (translationResult.raw.src === 'en') {
+                const spanishTranslation = await translate(m.text, { to: 'es' });
+                if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
+                    m.reply(`*🤖 Traducción al Español:*\n\n${spanishTranslation.text}`);
+                }
+            }
+        } catch (e) {
+            console.error('Translation error in FAMILY group:', e);
+        }
+    }
+}
+
 m.isWABusiness = global.conn.authState?.creds?.platform === 'smba' || global.conn.authState?.creds?.platform === 'smbi'
 m.isChannel = m.chat.includes('@newsletter') || m.sender.includes('@newsletter')
 
