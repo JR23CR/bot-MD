@@ -8,8 +8,7 @@ import chalk from 'chalk'
 import fetch from 'node-fetch' 
 import ws from 'ws'
 import './plugins/_content.js'
-import pkg from '@vitalets/google-translate-api';
-const { translate } = pkg;
+import { translate } from '@vitalets/google-translate-api';
 
 /**
  * @type {import('@whiskeysockets/baileys')}  
@@ -219,18 +218,24 @@ const isAdmin = isRAdmin || user?.admin == 'admin' || false
 const isBotAdmin = bot?.admin || false 
 
 if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
-    const groupName = groupMetadata.subject;
-    if (groupName === global.translateToEnglishGroup) {
+    const groupName = groupMetadata.subject || '';
+    
+    // Solo en el grupo FAMILY
+    if (groupName === 'FAMILY') {
         try {
             const translationResult = await translate(m.text, { to: 'en' });
-            if (translationResult.raw.src === 'es') {
-                if (m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
+            const detectedLang = translationResult.raw?.src;
+            
+            if (detectedLang && m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
+                if (detectedLang === 'es') {
+                    // Si está en español, traduce a inglés
                     m.reply(`*🤖 English Translation:*\n\n${translationResult.text}`);
-                }
-            } else if (translationResult.raw.src === 'en') {
-                const spanishTranslation = await translate(m.text, { to: 'es' });
-                if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
-                    m.reply(`*🤖 Traducción al Español:*\n\n${spanishTranslation.text}`);
+                } else if (detectedLang === 'en') {
+                    // Si está en inglés, traduce a español
+                    const spanishTranslation = await translate(m.text, { to: 'es' });
+                    if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
+                        m.reply(`*🤖 Traducción al Español:*\n\n${spanishTranslation.text}`);
+                    }
                 }
             }
         } catch (e) {
