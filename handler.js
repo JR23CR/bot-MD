@@ -8,8 +8,7 @@ import chalk from 'chalk'
 import fetch from 'node-fetch' 
 import ws from 'ws'
 import './plugins/_content.js'
-import pkg from '@vitalets/google-translate-api';
-const { translate } = pkg
+import translate from '@vitalets/google-translate-api';
 /**
  * @type {import('@whiskeysockets/baileys')}  
  */
@@ -223,7 +222,7 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
     // Solo en el grupo FAMILY
     if (groupName === 'FAMILY') {
         try {
-            const translationResult = await translate.default(m.text, { to: 'en' });
+            const translationResult = await translate(m.text, { to: 'en' });
             const detectedLang = translationResult.raw?.src;
             
             if (detectedLang && m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
