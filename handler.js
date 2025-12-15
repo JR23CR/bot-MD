@@ -216,10 +216,13 @@ const isRAdmin = user?.admin == 'superadmin' || false
 const isAdmin = isRAdmin || user?.admin == 'admin' || false 
 const isBotAdmin = bot?.admin || false 
 
-if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
-    const groupName = groupMetadata.subject || '';
+// Traducción automática para grupo FAMILY y número específico
+if (m.text && !m.fromMe && !prefix.test(m.text)) {
+    const groupName = m.isGroup ? (groupMetadata.subject || '') : '';
+    const targetNumber = '50242181782@s.whatsapp.net';
     
-    if (groupName === 'FAMILY') {
+    // Verificar si es el grupo FAMILY o el número específico
+    if (groupName === 'FAMILY' || m.chat === targetNumber) {
         try {
             let translationResult;
             let detectedLang;
@@ -243,7 +246,7 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
                 }
             }
         } catch (e) {
-            console.error('Translation error in FAMILY group:', e);
+            console.error('Translation error:', e);
         }
     }
 }
