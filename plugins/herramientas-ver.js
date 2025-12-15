@@ -57,8 +57,6 @@ let handler = async (m, { conn, command }) => {
 
         // Intentar descargar el contenido
         try {
-            await conn.reply(m.chat, '⏳ Descargando contenido de "ver una vez"...', m)
-            
             const stream = await downloadContentFromMessage(mediaMessage, type)
             let buffer = Buffer.from([])
             
