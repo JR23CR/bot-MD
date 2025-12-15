@@ -79,25 +79,46 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
             }
         }
 
-        // Formatear mensaje
-        let mensaje = `╔══════════════════╗\n`
-        mensaje += `     🌍 *CLIMA ACTUAL* 🌍\n`
-        mensaje += `╚══════════════════╝\n\n`
+        // Formatear mensaje en español e inglés
+        let mensaje = `╔═══════════════════════╗\n`
+        mensaje += `   🌍 *CLIMA / WEATHER* 🌍\n`
+        mensaje += `╚═══════════════════════╝\n\n`
 
         for (let data of weatherData) {
             mensaje += `📍 *${data.city}*\n`
-            mensaje += `${data.weather}\n`
-            mensaje += `🌡️ ${data.tempC}°C - ${data.tempF}°F\n`
-            mensaje += `🤚 Sensación: ${data.feelsLike}°F\n`
-            mensaje += `💧 Humedad: ${data.humidity}%\n`
-            mensaje += `💨 Viento: ${data.windSpeed} mph\n`
+            mensaje += `━━━━━━━━━━━━━━━━━━━━━━\n`
+            mensaje += `${data.weather}\n\n`
+            
+            // Temperatura
+            mensaje += `🌡️ *Temperatura / Temperature*\n`
+            mensaje += `   ${data.tempC}°C (${data.tempF}°F)\n\n`
+            
+            // Sensación térmica
+            mensaje += `🤚 *Sensación / Feels Like*\n`
+            mensaje += `   ${data.feelsLike}°F\n\n`
+            
+            // Humedad
+            mensaje += `💧 *Humedad / Humidity*\n`
+            mensaje += `   ${data.humidity}%\n\n`
+            
+            // Viento
+            mensaje += `💨 *Viento / Wind*\n`
+            mensaje += `   ${data.windSpeed} mph\n`
+            
             if (data.precipitation > 0) {
-                mensaje += `🌧️ Precipitación: ${data.precipitation} mm\n`
+                mensaje += `\n🌧️ *Precipitación / Precipitation*\n`
+                mensaje += `   ${data.precipitation} mm\n`
             }
-            mensaje += `\n`
+            mensaje += `\n━━━━━━━━━━━━━━━━━━━━━━\n\n`
         }
 
-        mensaje += `⏰ Actualizado: ${new Date().toLocaleString('es-GT', { timeZone: 'America/Guatemala' })}`
+        const now = new Date()
+        const timeES = now.toLocaleString('es-GT', { timeZone: 'America/Guatemala' })
+        const timeEN = now.toLocaleString('en-US', { timeZone: 'America/New_York' })
+        
+        mensaje += `⏰ *Actualizado / Updated*\n`
+        mensaje += `   🇬🇹 ${timeES}\n`
+        mensaje += `   🇺🇸 ${timeEN}`
 
         await conn.sendMessage(m.chat, { 
             text: mensaje 
