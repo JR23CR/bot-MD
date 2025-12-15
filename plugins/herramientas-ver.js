@@ -1,24 +1,33 @@
+// VERSIÓN DE DEBUG - Agrega esto temporalmente al plugin ver.js para ver qué está pasando
+
 import { downloadContentFromMessage } from '@whiskeysockets/baileys'
 import { canExecuteCommand } from '../lib/group-restriction.js'
 
 let handler = async (m, { conn, command }) => {
     try {
+        // DEBUG: Mostrar información
+        console.log('=== DEBUG RESTRICCIÓN ===')
+        console.log('Chat ID:', m.chat)
+        console.log('Sender:', m.sender)
+        console.log('Es grupo?:', m.isGroup)
+        console.log('Puede ejecutar?:', canExecuteCommand(m))
+        console.log('========================')
+
         // Verificar permisos PRIMERO
         if (!canExecuteCommand(m)) {
-            console.log(`🚫 Comando .ver bloqueado para ${m.sender}`)
+            console.log(`🚫 Comando .ver bloqueado para ${m.sender} en ${m.chat}`)
             return // Ignorar silenciosamente
         }
 
         console.log(`✅ Comando .ver permitido para ${m.sender}`)
 
-        // Verificar si hay un mensaje citado
+        // Resto del código del plugin...
         if (!m.quoted) {
             return conn.reply(m.chat, '❌ Debes responder a un mensaje de "ver una vez" con este comando.\n\n📝 Uso: Responde a la imagen/video de ver una vez con *.ver*', m)
         }
 
         const quotedMsg = m.quoted
         
-        // Verificar si es un mensaje viewOnce
         const isViewOnce = quotedMsg.mtype === 'viewOnceMessageV2' || 
                           quotedMsg.mtype === 'viewOnceMessage' ||
                           quotedMsg.mediaMessage?.imageMessage?.viewOnce ||
@@ -35,7 +44,6 @@ let handler = async (m, { conn, command }) => {
         let type = null
         let mediaMessage = null
 
-        // Obtener el mediaMessage y tipo
         if (quotedMsg.mediaMessage) {
             if (quotedMsg.mediaMessage.imageMessage) {
                 type = 'image'
@@ -64,10 +72,7 @@ let handler = async (m, { conn, command }) => {
             return conn.reply(m.chat, '❌ No se pudo obtener el contenido del mensaje de "ver una vez".', m)
         }
 
-        // Intentar descargar el contenido
         try {
-            console.log(`📥 Descargando ${type}...`)
-            
             const stream = await downloadContentFromMessage(mediaMessage, type)
             let buffer = Buffer.from([])
             
@@ -79,9 +84,6 @@ let handler = async (m, { conn, command }) => {
                 return conn.reply(m.chat, '❌ No se pudo descargar el contenido.\n\n⚠️ El mensaje puede haber expirado o sido eliminado.', m)
             }
 
-            console.log(`✅ Contenido descargado: ${buffer.length} bytes`)
-
-            // Enviar el contenido capturado
             const caption = `👁️ *Contenido de "Ver una vez" revelado*\n\n📦 Tamaño: ${(buffer.length / 1024).toFixed(2)} KB`
 
             if (type === 'image') {
@@ -105,16 +107,15 @@ let handler = async (m, { conn, command }) => {
                 await conn.reply(m.chat, caption, m, { mentions: [m.sender] })
             }
 
-            console.log('✅ Contenido de "ver una vez" enviado exitosamente')
+            console.log('✅ Contenido enviado exitosamente')
 
         } catch (downloadError) {
-            console.error('❌ Error al descargar contenido viewOnce:', downloadError)
+            console.error('❌ Error al descargar:', downloadError)
             return conn.reply(m.chat, '❌ Error al descargar el contenido.\n\n⚠️ El mensaje de "ver una vez" probablemente ya fue visto o eliminado del servidor.', m)
         }
 
     } catch (error) {
         console.error('❌ Error en comando .ver:', error)
-        console.error('Stack:', error.stack)
         await conn.reply(m.chat, `❌ Ocurrió un error al procesar el comando.\n\n🔧 Error: ${error.message}`, m)
     }
 }
