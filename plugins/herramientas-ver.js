@@ -1,122 +1,105 @@
-// VERSIÓN DE DEBUG - Agrega esto temporalmente al plugin ver.js para ver qué está pasando
+// 📁 plugin/herramientas-ver.js - VERSIÓN OPTIMIZADA Y CON RESTRICCIÓN
 
 import { downloadContentFromMessage } from '@whiskeysockets/baileys'
-import { canExecuteCommand } from '../lib/group-restriction.js'
+import { canExecuteCommand } from '../lib/group-restriction.js' // Asegúrate de que esta ruta sea correcta
 
 let handler = async (m, { conn, command }) => {
     try {
-        // DEBUG: Mostrar información
-        console.log('=== DEBUG RESTRICCIÓN ===')
-        console.log('Chat ID:', m.chat)
-        console.log('Sender:', m.sender)
-        console.log('Es grupo?:', m.isGroup)
-        console.log('Puede ejecutar?:', canExecuteCommand(m))
-        console.log('========================')
-
-        // Verificar permisos PRIMERO
-        if (!canExecuteCommand(m)) {
-            console.log(`🚫 Comando .ver bloqueado para ${m.sender} en ${m.chat}`)
-            return // Ignorar silenciosamente
-        }
-
-        console.log(`✅ Comando .ver permitido para ${m.sender}`)
-
-        // Resto del código del plugin...
-        if (!m.quoted) {
-            return conn.reply(m.chat, '❌ Debes responder a un mensaje de "ver una vez" con este comando.\n\n📝 Uso: Responde a la imagen/video de ver una vez con *.ver*', m)
-        }
-
-        const quotedMsg = m.quoted
+        // === DEBUG RESTRICCIÓN ===
+        const puedeEjecutar = canExecuteCommand(m);
         
-        const isViewOnce = quotedMsg.mtype === 'viewOnceMessageV2' || 
-                          quotedMsg.mtype === 'viewOnceMessage' ||
-                          quotedMsg.mediaMessage?.imageMessage?.viewOnce ||
-                          quotedMsg.mediaMessage?.videoMessage?.viewOnce ||
-                          quotedMsg.mediaMessage?.audioMessage?.viewOnce ||
-                          quotedMsg.message?.imageMessage?.viewOnce ||
-                          quotedMsg.message?.videoMessage?.viewOnce ||
-                          quotedMsg.message?.audioMessage?.viewOnce
+        console.log('=== DEBUG RESTRICCIÓN ===');
+        console.log(`Chat ID: ${m.chat}`);
+        console.log(`Sender: ${m.sender}`);
+        console.log(`Es grupo?: ${m.isGroup}`);
+        console.log(`Puede ejecutar?: ${puedeEjecutar}`);
+        console.log('========================');
+
+        // Verificar permisos - BLOQUEA AQUÍ SI EL PERMISO ES FALSO
+        if (!puedeEjecutar) {
+            console.log(`🚫 Comando .ver bloqueado para ${m.sender} en ${m.chat}`);
+            return; 
+        }
+
+        console.log(`✅ Comando .ver permitido para ${m.sender}`);
+
+        // --- LÓGICA DEL PLUGIN (.ver) ---
+
+        if (!m.quoted) {
+            return conn.reply(m.chat, '❌ Debes responder a un mensaje de "ver una vez" con este comando.\n\n📝 Uso: Responde a la imagen/video de ver una vez con *.ver*', m);
+        }
+
+        const quotedMsg = m.quoted.message || m.quoted;
+
+        const isViewOnce = quotedMsg.viewOnceMessageV2 || quotedMsg.viewOnceMessage || 
+                           quotedMsg.imageMessage?.viewOnce || 
+                           quotedMsg.videoMessage?.viewOnce || 
+                           quotedMsg.audioMessage?.viewOnce;
 
         if (!isViewOnce) {
-            return conn.reply(m.chat, '❌ El mensaje citado no es de "ver una vez".\n\n💡 Asegúrate de responder a un mensaje que tenga la etiqueta "Ver una vez".', m)
+            return conn.reply(m.chat, '❌ El mensaje citado no es de "ver una vez".\n\n💡 Asegúrate de responder a un mensaje que tenga la etiqueta "Ver una vez".', m);
         }
 
-        let type = null
-        let mediaMessage = null
-
-        if (quotedMsg.mediaMessage) {
-            if (quotedMsg.mediaMessage.imageMessage) {
-                type = 'image'
-                mediaMessage = quotedMsg.mediaMessage.imageMessage
-            } else if (quotedMsg.mediaMessage.videoMessage) {
-                type = 'video'
-                mediaMessage = quotedMsg.mediaMessage.videoMessage
-            } else if (quotedMsg.mediaMessage.audioMessage) {
-                type = 'audio'
-                mediaMessage = quotedMsg.mediaMessage.audioMessage
-            }
-        } else if (quotedMsg.message) {
-            if (quotedMsg.message.imageMessage) {
-                type = 'image'
-                mediaMessage = quotedMsg.message.imageMessage
-            } else if (quotedMsg.message.videoMessage) {
-                type = 'video'
-                mediaMessage = quotedMsg.message.videoMessage
-            } else if (quotedMsg.message.audioMessage) {
-                type = 'audio'
-                mediaMessage = quotedMsg.message.audioMessage
-            }
+        let mediaMessage = quotedMsg.viewOnceMessageV2?.message || quotedMsg.viewOnceMessage?.message;
+        
+        if (mediaMessage) {
+            mediaMessage = mediaMessage[Object.keys(mediaMessage)[0]];
+        } else {
+            mediaMessage = m.quoted.message || m.quoted;
         }
 
-        if (!mediaMessage || !type) {
-            return conn.reply(m.chat, '❌ No se pudo obtener el contenido del mensaje de "ver una vez".', m)
+        let type = Object.keys(mediaMessage).find(key => 
+            key.includes('Message') && !key.includes('viewOnce')
+        );
+
+        if (!type) {
+            return conn.reply(m.chat, '❌ No se pudo obtener el contenido del mensaje de "ver una vez".', m);
         }
+
+        const baseType = type.replace('Message', '');
 
         try {
-            const stream = await downloadContentFromMessage(mediaMessage, type)
-            let buffer = Buffer.from([])
+            const stream = await downloadContentFromMessage(mediaMessage[type], baseType);
+            let buffer = Buffer.from([]);
             
             for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk])
+                buffer = Buffer.concat([buffer, chunk]);
             }
 
             if (!buffer || buffer.length === 0) {
-                return conn.reply(m.chat, '❌ No se pudo descargar el contenido.\n\n⚠️ El mensaje puede haber expirado o sido eliminado.', m)
+                return conn.reply(m.chat, '❌ No se pudo descargar el contenido.\n\n⚠️ El mensaje puede haber expirado o sido eliminado.', m);
             }
 
-            const caption = `👁️ *Contenido de "Ver una vez" revelado*\n\n📦 Tamaño: ${(buffer.length / 1024).toFixed(2)} KB`
+            const caption = `👁️ *Contenido de "Ver una vez" revelado*\n\n📦 Tamaño: ${(buffer.length / 1024).toFixed(2)} KB`;
 
-            if (type === 'image') {
-                await conn.sendMessage(m.chat, {
-                    image: buffer,
-                    caption: caption,
-                    mentions: [m.sender]
-                }, { quoted: m })
-            } else if (type === 'video') {
-                await conn.sendMessage(m.chat, {
-                    video: buffer,
-                    caption: caption,
-                    mentions: [m.sender]
-                }, { quoted: m })
-            } else if (type === 'audio') {
-                await conn.sendMessage(m.chat, {
-                    audio: buffer,
-                    mimetype: 'audio/mp4',
-                    ptt: false
-                }, { quoted: m })
-                await conn.reply(m.chat, caption, m, { mentions: [m.sender] })
+            const messageOptions = {
+                caption: caption,
+                mentions: [m.sender]
+            };
+
+            if (baseType === 'image') {
+                await conn.sendMessage(m.chat, { image: buffer, ...messageOptions }, { quoted: m });
+            } else if (baseType === 'video') {
+                await conn.sendMessage(m.chat, { video: buffer, ...messageOptions }, { quoted: m });
+            } else if (baseType === 'audio') {
+                await conn.sendMessage(m.chat, { 
+                    audio: buffer, 
+                    mimetype: 'audio/mp4', 
+                    ptt: false 
+                }, { quoted: m });
+                await conn.reply(m.chat, caption, m, { mentions: [m.sender] });
             }
 
-            console.log('✅ Contenido enviado exitosamente')
+            console.log('✅ Contenido enviado exitosamente');
 
         } catch (downloadError) {
-            console.error('❌ Error al descargar:', downloadError)
-            return conn.reply(m.chat, '❌ Error al descargar el contenido.\n\n⚠️ El mensaje de "ver una vez" probablemente ya fue visto o eliminado del servidor.', m)
+            console.error('❌ Error al descargar:', downloadError);
+            return conn.reply(m.chat, '❌ Error al descargar el contenido.\n\n⚠️ El mensaje de "ver una vez" probablemente ya fue visto o eliminado del servidor.', m);
         }
 
     } catch (error) {
-        console.error('❌ Error en comando .ver:', error)
-        await conn.reply(m.chat, `❌ Ocurrió un error al procesar el comando.\n\n🔧 Error: ${error.message}`, m)
+        console.error('❌ Error en comando .ver:', error);
+        await conn.reply(m.chat, `❌ Ocurrió un error al procesar el comando.\n\n🔧 Error: ${error.message}`, m);
     }
 }
 
