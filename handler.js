@@ -231,13 +231,15 @@ if (m.isGroup && m.text && !m.fromMe && !prefix.test(m.text)) {
             if (detectedLang === 'es') {
                 // Si es español, traduce a inglés
                 if (m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
-                    m.reply(`*🤖 English Translation:*\n\n${translationResult.text}`);
+                    // Enviar como mensaje normal sin metadatos
+                    await this.sendMessage(m.chat, { text: translationResult.text });
                 }
             } else if (detectedLang === 'en') {
                 // Si es inglés, traduce a español
                 const spanishTranslation = await translate(m.text, { to: 'es' });
                 if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
-                    m.reply(`*🤖 Traducción al Español:*\n\n${spanishTranslation.text}`);
+                    // Enviar como mensaje normal sin metadatos
+                    await this.sendMessage(m.chat, { text: spanishTranslation.text });
                 }
             }
         } catch (e) {
