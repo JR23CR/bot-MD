@@ -9,57 +9,103 @@ let handler = async (m, { conn, command }) => {
 
         const quotedMsg = m.quoted
         
-        // Función para extraer el mensaje viewOnce de diferentes estructuras
-        const getViewOnceMessage = (msg) => {
-            // Verificar en diferentes ubicaciones posibles
-            if (msg.viewOnce) return msg
-            if (msg.message?.viewOnceMessage) return msg.message.viewOnceMessage.message
-            if (msg.message?.viewOnceMessageV2) return msg.message.viewOnceMessageV2.message
-            if (msg.message?.viewOnceMessageV2Extension) return msg.message.viewOnceMessageV2Extension.message
-            
-            // Verificar en el mensaje directo
-            if (msg.imageMessage?.viewOnce) return msg
-            if (msg.videoMessage?.viewOnce) return msg
-            if (msg.audioMessage?.viewOnce) return msg
-            
-            return null
+        // Log completo para debug
+        console.log('=== DEBUG VIEW ONCE ===')
+        console.log('quotedMsg keys:', Object.keys(quotedMsg))
+        console.log('quotedMsg.mtype:', quotedMsg.mtype)
+        console.log('quotedMsg.msg:', quotedMsg.msg ? Object.keys(quotedMsg.msg) : 'no msg')
+        console.log('quotedMsg.message:', quotedMsg.message ? JSON.stringify(quotedMsg.message, null, 2) : 'no message')
+        console.log('Full quotedMsg:', JSON.stringify(quotedMsg, null, 2))
+        console.log('======================')
+
+        // Intentar obtener el mensaje de diferentes maneras
+        let viewOnceMsg = null
+        let mediaMessage = null
+        let type = null
+
+        // Método 1: Verificar en quotedMsg.msg
+        if (quotedMsg.msg) {
+            if (quotedMsg.msg.viewOnce || quotedMsg.mtype?.includes('viewOnce')) {
+                if (quotedMsg.msg.imageMessage) {
+                    type = 'image'
+                    mediaMessage = quotedMsg.msg.imageMessage
+                } else if (quotedMsg.msg.videoMessage) {
+                    type = 'video'
+                    mediaMessage = quotedMsg.msg.videoMessage
+                } else if (quotedMsg.msg.audioMessage) {
+                    type = 'audio'
+                    mediaMessage = quotedMsg.msg.audioMessage
+                }
+            }
         }
 
-        const viewOnceContent = getViewOnceMessage(quotedMsg)
-        
-        if (!viewOnceContent) {
-            console.log('Estructura del mensaje:', JSON.stringify(quotedMsg, null, 2))
-            return conn.reply(m.chat, '❌ El mensaje citado no es de "ver una vez".\n\n💡 Asegúrate de responder a un mensaje que tenga la etiqueta "Ver una vez".', m)
+        // Método 2: Verificar en quotedMsg.message
+        if (!mediaMessage && quotedMsg.message) {
+            const msg = quotedMsg.message
+            
+            if (msg.viewOnceMessage?.message) {
+                viewOnceMsg = msg.viewOnceMessage.message
+            } else if (msg.viewOnceMessageV2?.message) {
+                viewOnceMsg = msg.viewOnceMessageV2.message
+            } else if (msg.viewOnceMessageV2Extension?.message) {
+                viewOnceMsg = msg.viewOnceMessageV2Extension.message
+            }
+
+            if (viewOnceMsg) {
+                if (viewOnceMsg.imageMessage) {
+                    type = 'image'
+                    mediaMessage = viewOnceMsg.imageMessage
+                } else if (viewOnceMsg.videoMessage) {
+                    type = 'video'
+                    mediaMessage = viewOnceMsg.videoMessage
+                } else if (viewOnceMsg.audioMessage) {
+                    type = 'audio'
+                    mediaMessage = viewOnceMsg.audioMessage
+                }
+            }
         }
 
-        let type
-        let buffer
-        let fileName = 'viewonce'
-        let mediaMessage
+        // Método 3: Verificar directamente en el mensaje citado
+        if (!mediaMessage) {
+            if (quotedMsg.imageMessage?.viewOnce) {
+                type = 'image'
+                mediaMessage = quotedMsg.imageMessage
+            } else if (quotedMsg.videoMessage?.viewOnce) {
+                type = 'video'
+                mediaMessage = quotedMsg.videoMessage
+            } else if (quotedMsg.audioMessage?.viewOnce) {
+                type = 'audio'
+                mediaMessage = quotedMsg.audioMessage
+            }
+        }
 
-        // Detectar el tipo de contenido
-        if (viewOnceContent.imageMessage) {
-            type = 'image'
-            fileName = 'viewonce.jpg'
-            mediaMessage = viewOnceContent.imageMessage
-        } else if (viewOnceContent.videoMessage) {
-            type = 'video'
-            fileName = 'viewonce.mp4'
-            mediaMessage = viewOnceContent.videoMessage
-        } else if (viewOnceContent.audioMessage) {
-            type = 'audio'
-            fileName = 'viewonce.mp3'
-            mediaMessage = viewOnceContent.audioMessage
-        } else {
-            return conn.reply(m.chat, '❌ No se pudo identificar el tipo de contenido del mensaje de "ver una vez".', m)
+        // Método 4: Usar el mtype
+        if (!mediaMessage && quotedMsg.mtype) {
+            if (quotedMsg.mtype.includes('image')) {
+                type = 'image'
+                mediaMessage = quotedMsg.msg
+            } else if (quotedMsg.mtype.includes('video')) {
+                type = 'video'
+                mediaMessage = quotedMsg.msg
+            } else if (quotedMsg.mtype.includes('audio')) {
+                type = 'audio'
+                mediaMessage = quotedMsg.msg
+            }
+        }
+
+        if (!mediaMessage) {
+            return conn.reply(m.chat, '❌ El mensaje citado no es de "ver una vez".\n\n💡 Asegúrate de responder a un mensaje que tenga la etiqueta "Ver una vez".\n\n🔍 Revisa la consola para más detalles de debug.', m)
         }
 
         // Intentar descargar el contenido
         try {
             await conn.reply(m.chat, '⏳ Descargando contenido de "ver una vez"...', m)
             
+            console.log('Intentando descargar tipo:', type)
+            console.log('mediaMessage keys:', Object.keys(mediaMessage))
+            
             const stream = await downloadContentFromMessage(mediaMessage, type)
-            buffer = Buffer.from([])
+            let buffer = Buffer.from([])
             
             for await (const chunk of stream) {
                 buffer = Buffer.concat([buffer, chunk])
@@ -70,7 +116,7 @@ let handler = async (m, { conn, command }) => {
             }
 
             // Enviar el contenido capturado
-            const caption = `👁️ *Contenido de "Ver una vez" revelado*\n\n📤 Solicitado por: @${m.sender.split('@')[0]}`
+            const caption = `👁️ *Contenido de "Ver una vez" revelado*\n\n📤 Solicitado por: @${m.sender.split('@')[0]}\n📦 Tamaño: ${(buffer.length / 1024).toFixed(2)} KB`
 
             if (type === 'image') {
                 await conn.sendMessage(m.chat, {
@@ -92,6 +138,8 @@ let handler = async (m, { conn, command }) => {
                 }, { quoted: m })
                 await conn.reply(m.chat, caption, m, { mentions: [m.sender] })
             }
+
+            console.log('✅ Contenido enviado exitosamente')
 
         } catch (downloadError) {
             console.error('Error al descargar contenido viewOnce:', downloadError)
