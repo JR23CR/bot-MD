@@ -9,6 +9,21 @@ import fetch from 'node-fetch'
 import ws from 'ws'
 import './plugins/_content.js'
 import translate from '@vitalets/google-translate-api';
+
+// Sistema de caché para prevenir traducciones duplicadas
+const translationCache = new Map();
+const CACHE_DURATION = 5000; // 5 segundos
+
+// Limpiar caché antiguo periódicamente
+setInterval(() => {
+    const now = Date.now();
+    for (let [key, timestamp] of translationCache.entries()) {
+        if (now - timestamp > CACHE_DURATION) {
+            translationCache.delete(key);
+        }
+    }
+}, 10000); // Limpiar cada 10 segundos
+
 /**
  * @type {import('@whiskeysockets/baileys')}  
  */
@@ -224,33 +239,42 @@ if (m.text && !m.fromMe && !prefix.test(m.text)) {
     // Verificar si es el grupo FAMILY o el número específico
     if (groupName === 'FAMILY' || m.chat === targetNumber) {
         try {
-            let translationResult;
-            let detectedLang;
+            // Crear clave única para este mensaje
+            const messageKey = `${m.chat}_${m.sender}_${m.text}_${Date.now()}`;
+            const cacheKey = `${m.chat}_${m.id}`;
             
-            // Primero detectamos el idioma
-            translationResult = await translate(m.text, { to: 'en' });
-            detectedLang = translationResult.from.language.iso;
-            
-            if (detectedLang === 'es') {
-                // Si es español, traduce a inglés
-                if (m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
-                    // Enviar como respuesta al mensaje original
-                    await this.sendMessage(m.chat, { 
-                        text: translationResult.text 
-                    }, { 
-                        quoted: m 
-                    });
-                }
-            } else if (detectedLang === 'en') {
-                // Si es inglés, traduce a español
-                const spanishTranslation = await translate(m.text, { to: 'es' });
-                if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
-                    // Enviar como respuesta al mensaje original
-                    await this.sendMessage(m.chat, { 
-                        text: spanishTranslation.text 
-                    }, { 
-                        quoted: m 
-                    });
+            // Verificar si ya se tradujo este mensaje específico
+            if (!translationCache.has(cacheKey)) {
+                translationCache.set(cacheKey, Date.now());
+                
+                let translationResult;
+                let detectedLang;
+                
+                // Primero detectamos el idioma
+                translationResult = await translate(m.text, { to: 'en' });
+                detectedLang = translationResult.from.language.iso;
+                
+                if (detectedLang === 'es') {
+                    // Si es español, traduce a inglés
+                    if (m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
+                        // Enviar como respuesta al mensaje original
+                        await this.sendMessage(m.chat, { 
+                            text: translationResult.text 
+                        }, { 
+                            quoted: m 
+                        });
+                    }
+                } else if (detectedLang === 'en') {
+                    // Si es inglés, traduce a español
+                    const spanishTranslation = await translate(m.text, { to: 'es' });
+                    if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
+                        // Enviar como respuesta al mensaje original
+                        await this.sendMessage(m.chat, { 
+                            text: spanishTranslation.text 
+                        }, { 
+                            quoted: m 
+                        });
+                    }
                 }
             }
         } catch (e) {
