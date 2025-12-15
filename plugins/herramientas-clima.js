@@ -36,32 +36,32 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
                 const windSpeed = Math.round(data.current.wind_speed_10m)
                 const precipitation = data.current.precipitation
                 
-                // Códigos de clima WMO
+                // Códigos de clima WMO (Bilingüe)
                 const weatherCodes = {
-                    0: '☀️ Despejado',
-                    1: '🌤️ Mayormente despejado',
-                    2: '⛅ Parcialmente nublado',
-                    3: '☁️ Nublado',
-                    45: '🌫️ Neblina',
-                    48: '🌫️ Neblina con escarcha',
-                    51: '🌦️ Llovizna ligera',
-                    53: '🌦️ Llovizna moderada',
-                    55: '🌧️ Llovizna densa',
-                    61: '🌧️ Lluvia ligera',
-                    63: '🌧️ Lluvia moderada',
-                    65: '🌧️ Lluvia fuerte',
-                    71: '🌨️ Nevada ligera',
-                    73: '🌨️ Nevada moderada',
-                    75: '❄️ Nevada fuerte',
-                    77: '🌨️ Granizo',
-                    80: '🌦️ Chubascos ligeros',
-                    81: '⛈️ Chubascos moderados',
-                    82: '⛈️ Chubascos fuertes',
-                    85: '🌨️ Chubascos de nieve ligeros',
-                    86: '🌨️ Chubascos de nieve fuertes',
-                    95: '⛈️ Tormenta eléctrica',
-                    96: '⛈️ Tormenta con granizo ligero',
-                    99: '⛈️ Tormenta con granizo fuerte'
+                    0: '☀️ Despejado / Clear',
+                    1: '🌤️ Mayormente despejado / Mostly Clear',
+                    2: '⛅ Parcialmente nublado / Partly Cloudy',
+                    3: '☁️ Nublado / Cloudy',
+                    45: '🌫️ Neblina / Fog',
+                    48: '🌫️ Neblina con escarcha / Freezing Fog',
+                    51: '🌦️ Llovizna ligera / Light Drizzle',
+                    53: '🌦️ Llovizna moderada / Moderate Drizzle',
+                    55: '🌧️ Llovizna densa / Dense Drizzle',
+                    61: '🌧️ Lluvia ligera / Light Rain',
+                    63: '🌧️ Lluvia moderada / Moderate Rain',
+                    65: '🌧️ Lluvia fuerte / Heavy Rain',
+                    71: '🌨️ Nevada ligera / Light Snow',
+                    73: '🌨️ Nevada moderada / Moderate Snow',
+                    75: '❄️ Nevada fuerte / Heavy Snow',
+                    77: '🌨️ Granizo / Hail',
+                    80: '🌦️ Chubascos ligeros / Light Showers',
+                    81: '⛈️ Chubascos moderados / Moderate Showers',
+                    82: '⛈️ Chubascos fuertes / Heavy Showers',
+                    85: '🌨️ Chubascos de nieve ligeros / Light Snow Showers',
+                    86: '🌨️ Chubascos de nieve fuertes / Heavy Snow Showers',
+                    95: '⛈️ Tormenta eléctrica / Thunderstorm',
+                    96: '⛈️ Tormenta con granizo ligero / Thunderstorm with Light Hail',
+                    99: '⛈️ Tormenta con granizo fuerte / Thunderstorm with Heavy Hail'
                 }
                 
                 const weatherDesc = weatherCodes[data.current.weather_code] || '🌡️ Clima desconocido'
@@ -79,46 +79,31 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
             }
         }
 
-        // Formatear mensaje en español e inglés
-        let mensaje = `╔═══════════════════════╗\n`
-        mensaje += `   🌍 *CLIMA / WEATHER* 🌍\n`
-        mensaje += `╚═══════════════════════╝\n\n`
+        // Formatear mensaje compacto y bilingüe
+        let mensaje = `🌍 *CLIMA / WEATHER*\n\n`
 
         for (let data of weatherData) {
             mensaje += `📍 *${data.city}*\n`
-            mensaje += `━━━━━━━━━━━━━━━━━━━━━━\n`
-            mensaje += `${data.weather}\n\n`
-            
-            // Temperatura
-            mensaje += `🌡️ *Temperatura / Temperature*\n`
-            mensaje += `   ${data.tempC}°C (${data.tempF}°F)\n\n`
-            
-            // Sensación térmica
-            mensaje += `🤚 *Sensación / Feels Like*\n`
-            mensaje += `   ${data.feelsLike}°F\n\n`
-            
-            // Humedad
-            mensaje += `💧 *Humedad / Humidity*\n`
-            mensaje += `   ${data.humidity}%\n\n`
-            
-            // Viento
-            mensaje += `💨 *Viento / Wind*\n`
-            mensaje += `   ${data.windSpeed} mph\n`
+            mensaje += `${data.weather}\n`
+            mensaje += `🌡️ Temperatura / Temperature: ${data.tempC}°C / ${data.tempF}°F\n`
+            mensaje += `🤚 Sensación / Feels Like: ${data.feelsLike}°F\n`
+            mensaje += `💧 Humedad / Humidity: ${data.humidity}%\n`
+            mensaje += `💨 Viento / Wind: ${data.windSpeed} mph\n`
             
             if (data.precipitation > 0) {
-                mensaje += `\n🌧️ *Precipitación / Precipitation*\n`
-                mensaje += `   ${data.precipitation} mm\n`
+                mensaje += `🌧️ Precipitación / Precipitation: ${data.precipitation}mm\n`
             }
-            mensaje += `\n━━━━━━━━━━━━━━━━━━━━━━\n\n`
+            mensaje += `\n`
         }
 
         const now = new Date()
-        const timeES = now.toLocaleString('es-GT', { timeZone: 'America/Guatemala' })
-        const timeEN = now.toLocaleString('en-US', { timeZone: 'America/New_York' })
+        const timeGT = now.toLocaleString('es-GT', { 
+            timeZone: 'America/Guatemala',
+            hour: '2-digit',
+            minute: '2-digit'
+        })
         
-        mensaje += `⏰ *Actualizado / Updated*\n`
-        mensaje += `   🇬🇹 ${timeES}\n`
-        mensaje += `   🇺🇸 ${timeEN}`
+        mensaje += `⏰ Actualizado / Updated: ${timeGT}`
 
         await conn.sendMessage(m.chat, { 
             text: mensaje 
