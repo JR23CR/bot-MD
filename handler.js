@@ -234,15 +234,23 @@ if (m.text && !m.fromMe && !prefix.test(m.text)) {
             if (detectedLang === 'es') {
                 // Si es español, traduce a inglés
                 if (m.text.toLowerCase() !== translationResult.text.toLowerCase()) {
-                    // Enviar como mensaje normal sin metadatos
-                    await this.sendMessage(m.chat, { text: translationResult.text });
+                    // Enviar como respuesta al mensaje original
+                    await this.sendMessage(m.chat, { 
+                        text: translationResult.text 
+                    }, { 
+                        quoted: m 
+                    });
                 }
             } else if (detectedLang === 'en') {
                 // Si es inglés, traduce a español
                 const spanishTranslation = await translate(m.text, { to: 'es' });
                 if (m.text.toLowerCase() !== spanishTranslation.text.toLowerCase()) {
-                    // Enviar como mensaje normal sin metadatos
-                    await this.sendMessage(m.chat, { text: spanishTranslation.text });
+                    // Enviar como respuesta al mensaje original
+                    await this.sendMessage(m.chat, { 
+                        text: spanishTranslation.text 
+                    }, { 
+                        quoted: m 
+                    });
                 }
             }
         } catch (e) {
