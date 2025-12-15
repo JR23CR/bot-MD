@@ -9,6 +9,7 @@ import fetch from 'node-fetch'
 import ws from 'ws'
 import './plugins/_content.js'
 import translate from '@vitalets/google-translate-api';
+import { canExecuteCommand, shouldBotRespond } from './lib/group-restriction.js'
 
 // Sistema de caché para prevenir traducciones duplicadas
 const translationCache = new Map();
@@ -200,8 +201,23 @@ return
 if (typeof m.text !== 'string')
 m.text = ''
 
+// ============ SISTEMA DE RESTRICCIÓN DE GRUPOS ============
+if (!shouldBotRespond(m)) {
+    console.log(`🚫 Mensaje ignorado de ${m.sender} en ${m.chat}`)
+    return
+}
+
 var settings = global.db.data.settings[this.user.jid]
 const prefix = new RegExp('^[' + settings.prefix.replace(/[|\\{}()[\]^$+*.\-\^]/g, '\\$&') + ']'); 
+
+if (m.text && prefix.test(m.text)) {
+    if (!canExecuteCommand(m)) {
+        console.log(`🚫 Comando bloqueado: ${m.text.slice(0, 20)} de ${m.sender}`)
+        return
+    }
+}
+// =========================================================
+
 const isROwner = [...global.owner.map(([number]) => number)].map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
 const isOwner = isROwner || m.fromMe
 const isMods = isOwner || global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
@@ -315,7 +331,7 @@ if (plugin.tags && plugin.tags.includes('admin')) {
 continue
 }
 const str2Regex = str => str.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
-            let _prefix = plugin.customPrefix ? plugin.customPrefix : this.prefix ? this.prefix : prefix; // Usamos prefix local
+            let _prefix = plugin.customPrefix ? plugin.customPrefix : this.prefix ? this.prefix : prefix;
             let match = (_prefix instanceof RegExp ?
                 [[_prefix.exec(m.text), _prefix]] :
                 Array.isArray(_prefix) ?
@@ -381,62 +397,62 @@ let adminMode = global.db.data.chats[m.chat].modoadmin
 let gata = `${plugins.botAdmin || plugins.admin || plugins.group || plugins || noPrefix || hl ||  m.text.slice(0, 1) == hl || plugins.command}`
 if (adminMode && !isOwner && !isROwner && m.isGroup && !isAdmin && gata) return   
 
-if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) { // BOT Y OWNERS
+if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) {
 fail('owner', m, this)
 continue
 }
-if (plugin.rowner && !isROwner) { // BOT
+if (plugin.rowner && !isROwner) {
 fail('rowner', m, this)
 continue
 }
-if (plugin.owner && !isOwner) { // OWNERS
+if (plugin.owner && !isOwner) {
 fail('owner', m, this)
 continue
 }
-if (plugin.mods && !isMods) { // MODERADORES
+if (plugin.mods && !isMods) {
 fail('mods', m, this)
 continue
 }
-if (plugin.premium && !isPrems) { // PREMIUM
+if (plugin.premium && !isPrems) {
 fail('premium', m, this)
 continue
 }
-if (plugin.group && !m.isGroup) { // GRUPO
+if (plugin.group && !m.isGroup) {
 fail('group', m, this)
 continue
-} else if (plugin.botAdmin && !isBotAdmin) { // BOT ADMIN
+} else if (plugin.botAdmin && !isBotAdmin) {
 fail('botAdmin', m, this)
 continue
-} else if (plugin.admin && !isAdmin) { // ADMINS
+} else if (plugin.admin && !isAdmin) {
 fail('admin', m, this)
 continue
 }
-if (plugin.private && m.isGroup) { // CHAT PRIVADO
+if (plugin.private && m.isGroup) {
 fail('private', m, this)
 continue
 }
-if (plugin.register == true && _user.registered == false) { // REGISTRO
+if (plugin.register == true && _user.registered == false) {
 fail('unreg', m, this)
 continue
 }
 
 m.isCommand = true
-let xp = 'exp' in plugin ? parseInt(plugin.exp) : 10 // GANANCIAS DE EXP POR COMMANDO 
+let xp = 'exp' in plugin ? parseInt(plugin.exp) : 10
 if (xp > 2000)
-m.reply('Exp limit') // LÍMITE DE EXP
+m.reply('Exp limit')
 else               
 if (!isPrems && plugin.money && global.db.data.users[m.sender].money < plugin.money * 1) {
 this.reply(m.chat, `🐈 *NO TIENE GATACOINS*`, m)
-continue // LÍMITE DE EXP    
+continue
 }
 m.exp += xp
 if (!isPrems && plugin.limit && global.db.data.users[m.sender].limit < plugin.limit * 1) {
 this.reply(m.chat, `${lenguajeGB['smsCont7']()} *${usedPrefix}buy*`, m)
-continue // LÍMITE DE DIAMANTES
+continue
 }
 if (plugin.level > _user.level) {
 this.reply(m.chat, `${lenguajeGB['smsCont9']()} *${plugin.level}* ${lenguajeGB['smsCont10']()} *${_user.level}* ${lenguajeGB['smsCont11']()} *${usedPrefix}nivel*`, m)
-continue // LÍMITE DE NIVEL
+continue
 }
                 
 let extra = { match, usedPrefix, noPrefix, _args, args, command, text, conn: this, participants, groupMetadata, user, bot, isROwner, isOwner, isRAdmin, isAdmin, isBotAdmin, isPrems, chatUpdate, __dirname: ___dirname, __filename }
@@ -454,11 +470,6 @@ for (let api in global.APIs) {
 let key = global.APIs[api].key;
 if (key) text = text.replace(new RegExp(key, 'g'), '#HIDDEN#');
 }
-/*
-if (e) {
-let text = format(e)
-for (let key of Object.values(global.APIKeys))
-text = text.replace(new RegExp(key, 'g'), '#HIDDEN#')*/
 if (e.name)
 for (let [jid] of global.owner.filter(([number, _, isDeveloper]) => isDeveloper && number)) {
 let data = (await conn.onWhatsApp(jid))[0] || {}
@@ -568,7 +579,7 @@ text = (action === 'add' ? (chat.sWelcome || this.welcome || conn.welcome || 'We
 (chat.sBye || this.bye || conn.bye || 'Bye, @user!')).replace('@user', '@' + user.split('@')[0])
 			    
 if (chat.antifake && isBotAdminNn && action === 'add') {
-const prefijosPredeterminados = [2, 4, 6, 7, 8, 9] // Puedes personalizar los prefijos de los usuarios que deseas eliminar, especificando los que deben ser bloqueados si el número empieza con alguno de ellos.
+const prefijosPredeterminados = [2, 4, 6, 7, 8, 9]
 let prefijos = (Array.isArray(chat.sCondition) && chat.sCondition.length > 0) || chat.sCondition !== "" ? chat.sCondition : prefijosPredeterminados
 const comienzaConPrefijo = prefijos.some(prefijo => user.startsWith(`+${prefijo}`))
 if (comienzaConPrefijo) {
@@ -577,8 +588,6 @@ await conn.sendMessage(id, { text: texto, mentions: [user] })
 if (m.key.participant && m.key.id) {
 await conn.sendMessage(id, { delete: { remoteJid: m.chat, fromMe: false, id: m.key.id, participant: m.key.participant }})
 }
-//let responseb = await conn.groupParticipantsUpdate(id, [user], 'remove')
-//if (responseb[0].status === "404") return
 }}
 	
 this.sendFile(id, apii.data, 'pp.jpg', text, null, false, { mentions: [user] }) 
@@ -596,7 +605,6 @@ if (!text)
 text = (chat.sDemote || this.sdemote || conn.sdemote || '@user ```is no longer Admin```')
 text = text.replace('@user', '@' + participants[0].split('@')[0])
 if (chat.detect)
-//this.sendMessage(id, { text, mentions: this.parseMention(text) })
 break
 }}
 
@@ -612,8 +620,6 @@ const id = groupUpdate.id
 if (!id) continue
 let chats = global.db.data.chats[id], text = ''
 if (!chats?.detect) continue
-//if (groupUpdate.desc) text = (chats.sDesc || this.sDesc || conn.sDesc || '```Description has been changed to```\n@desc').replace('@desc', groupUpdate.desc)
-//if (groupUpdate.subject) text = (chats.sSubject || this.sSubject || conn.sSubject || '```Subject has been changed to```\n@subject').replace('@subject', groupUpdate.subject)
 if (groupUpdate.icon) text = (chats.sIcon || this.sIcon || conn.sIcon || '```Icon has been changed to```').replace('@icon', groupUpdate.icon)
 if (groupUpdate.revoke) text = (chats.sRevoke || this.sRevoke || conn.sRevoke || '```Group link has been changed to```\n@revoke').replace('@revoke', groupUpdate.revoke)
 if (!text) continue
@@ -629,8 +635,6 @@ if (nk.status == "offer") {
 let tagUserL = `${nk.from.split('@')[0]}`
 let llamadaVideo = nk.isVideo
 let callmsg = await this.reply(nk.from, lenguajeGB['smsHandlerLlamar'](tagUserL, llamadaVideo), false, { mentions: [nk.from] })
-//let data = global.owner.filter(([id, isCreator]) => id && isCreator)
-//await this.sendContact(nk.from, data.map(([id, name]) => [id, name]), false, { quoted: callmsg })
 await this.updateBlockStatus(nk.from, 'block')
 }}}}
 
@@ -674,13 +678,4 @@ const file = global.__filename(import.meta.url, true);
 watchFile(file, async () => {
 unwatchFile(file)
 console.log(chalk.bold.greenBright(lenguajeGB['smsHandler']()))
-//if (global.reloadHandler) console.log(await global.reloadHandler());
 })
-
-
-/*if (global.reloadHandler) console.log(await global.reloadHandler());
-if (global.conns && global.conns.length > 0 ) {
-const users = [...new Set([...global.conns.filter((conn) => conn.user && conn.ws.socket && conn.ws.socket.readyState !== ws.CLOSED).map((conn) => conn)])];
-for (const userr of users) {
-userr.subreloadHandler(false)
-}}});*/
