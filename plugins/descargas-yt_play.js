@@ -98,54 +98,92 @@ handler.before = async (m, { conn }) => {
     try {
         await m.react('⏳')
 
-        // APIs para descargar
+        const isAudio = text === 'audio' || text === 'audiodoc'
+        const isDocument = text === 'audiodoc' || text === 'videodoc'
+        
+        // APIs actualizadas y funcionando
         const apis = [
-            // API 1: BK9 (Confiable)
+            // API 1: Agatz (Muy confiable)
             {
-                name: 'BK9',
+                name: 'Agatz',
                 audio: async (url) => {
-                    const res = await fetch(`https://api.bk9.site/api/ytmp3?url=${url}`)
+                    const res = await fetch(`https://api.agatz.xyz/api/ytmp3?url=${url}`)
                     const data = await res.json()
-                    return { url: data.BK9, title: userQueue.title }
+                    if (data.status !== 200) throw new Error('API error')
+                    return { url: data.data.download, title: data.data.title || userQueue.title }
                 },
                 video: async (url) => {
-                    const res = await fetch(`https://api.bk9.site/api/ytmp4?url=${url}`)
+                    const res = await fetch(`https://api.agatz.xyz/api/ytmp4?url=${url}`)
                     const data = await res.json()
-                    return { url: data.BK9, title: userQueue.title }
+                    if (data.status !== 200) throw new Error('API error')
+                    return { url: data.data.download, title: data.data.title || userQueue.title }
                 }
             },
-            // API 2: Ryzendesu
+            // API 2: Zenith
+            {
+                name: 'Zenith',
+                audio: async (url) => {
+                    const res = await fetch(`https://api.zenith.com.ar/api/ytmp3?url=${url}`)
+                    const data = await res.json()
+                    if (!data.result || !data.result.download) throw new Error('API error')
+                    return { url: data.result.download, title: data.result.title || userQueue.title }
+                },
+                video: async (url) => {
+                    const res = await fetch(`https://api.zenith.com.ar/api/ytmp4?url=${url}`)
+                    const data = await res.json()
+                    if (!data.result || !data.result.download) throw new Error('API error')
+                    return { url: data.result.download, title: data.result.title || userQueue.title }
+                }
+            },
+            // API 3: Ryzendesu (alternativa)
             {
                 name: 'Ryzendesu',
                 audio: async (url) => {
-                    const res = await fetch(`https://api.ryzendesu.vip/api/downloader/ytmp3?url=${url}`)
+                    const res = await fetch(`https://api.ryzendesu.vip/api/downloader/ytmp3?url=${encodeURIComponent(url)}`)
                     const data = await res.json()
+                    if (!data.url) throw new Error('API error')
                     return { url: data.url, title: data.metadata?.title || userQueue.title }
                 },
                 video: async (url) => {
-                    const res = await fetch(`https://api.ryzendesu.vip/api/downloader/ytmp4?url=${url}`)
+                    const res = await fetch(`https://api.ryzendesu.vip/api/downloader/ytmp4?url=${encodeURIComponent(url)}`)
                     const data = await res.json()
+                    if (!data.url) throw new Error('API error')
                     return { url: data.url, title: data.metadata?.title || userQueue.title }
                 }
             },
-            // API 3: Widipe
+            // API 4: APIs-Starlights
             {
-                name: 'Widipe',
+                name: 'Starlights',
                 audio: async (url) => {
-                    const res = await fetch(`https://widipe.com/download/ytdl?url=${url}`)
+                    const res = await fetch(`https://api-starlights-team.koyeb.app/starlight/ytmp3?url=${encodeURIComponent(url)}`)
                     const data = await res.json()
-                    return { url: data.result.mp3, title: data.result.title || userQueue.title }
+                    if (!data.resultado || !data.resultado.descargar) throw new Error('API error')
+                    return { url: data.resultado.descargar, title: data.resultado.titulo || userQueue.title }
                 },
                 video: async (url) => {
-                    const res = await fetch(`https://widipe.com/download/ytdl?url=${url}`)
+                    const res = await fetch(`https://api-starlights-team.koyeb.app/starlight/ytmp4?url=${encodeURIComponent(url)}`)
                     const data = await res.json()
-                    return { url: data.result.mp4, title: data.result.title || userQueue.title }
+                    if (!data.resultado || !data.resultado.descargar) throw new Error('API error')
+                    return { url: data.resultado.descargar, title: data.resultado.titulo || userQueue.title }
+                }
+            },
+            // API 5: Supra
+            {
+                name: 'Supra',
+                audio: async (url) => {
+                    const res = await fetch(`https://supra-api.vercel.app/api/ytdl?url=${encodeURIComponent(url)}`)
+                    const data = await res.json()
+                    if (!data.audio) throw new Error('API error')
+                    return { url: data.audio, title: data.title || userQueue.title }
+                },
+                video: async (url) => {
+                    const res = await fetch(`https://supra-api.vercel.app/api/ytdl?url=${encodeURIComponent(url)}`)
+                    const data = await res.json()
+                    if (!data.video) throw new Error('API error')
+                    return { url: data.video, title: data.title || userQueue.title }
                 }
             }
         ]
-
-        const isAudio = text === 'audio' || text === 'audiodoc'
-        const isDocument = text === 'audiodoc' || text === 'videodoc'
         
         let downloaded = false
 
@@ -154,13 +192,18 @@ handler.before = async (m, { conn }) => {
             if (downloaded) break
             
             try {
-                console.log(`Intentando con API: ${api.name}`)
+                console.log(`🔄 Intentando con API: ${api.name}`)
                 
                 const result = isAudio 
                     ? await api.audio(userQueue.url)
                     : await api.video(userQueue.url)
 
-                if (!result || !result.url) continue
+                if (!result || !result.url) {
+                    console.log(`❌ ${api.name}: No se obtuvo URL válida`)
+                    continue
+                }
+
+                console.log(`✅ ${api.name}: URL obtenida exitosamente`)
 
                 // Descargar y enviar
                 if (isAudio) {
@@ -188,26 +231,26 @@ handler.before = async (m, { conn }) => {
 
                 downloaded = true
                 await m.react('✅')
-                console.log(`Descargado exitosamente con: ${api.name}`)
+                console.log(`✅ Descarga completada con: ${api.name}`)
                 
             } catch (apiError) {
-                console.log(`Error con ${api.name}:`, apiError.message)
+                console.log(`❌ Error con ${api.name}:`, apiError.message)
                 continue
             }
         }
 
         if (!downloaded) {
             await m.react('❌')
-            await m.reply('❌ No se pudo descargar el archivo. Todas las APIs fallaron. Intenta de nuevo más tarde.')
+            await m.reply(`❌ *Error de descarga*\n\nNo se pudo descargar el archivo. Todas las APIs fallaron.\n\n*Posibles causas:*\n• El video puede estar restringido\n• Intenta con otro video\n• Intenta de nuevo más tarde`)
         }
 
         // Limpiar la cola
         delete global.ytPlayQueue[m.sender]
 
     } catch (error) {
-        console.error('Error al descargar:', error)
+        console.error('❌ Error crítico al descargar:', error)
         await m.react('❌')
-        await m.reply('❌ Ocurrió un error al descargar. Intenta de nuevo.')
+        await m.reply('❌ Ocurrió un error inesperado al procesar la descarga. Intenta de nuevo.')
         delete global.ytPlayQueue[m.sender]
     }
 }
