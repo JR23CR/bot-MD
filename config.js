@@ -79,8 +79,8 @@ global.fetch = fetch
 global.axios = axios
 global.moment = moment	
 
-global.packname = '𝙂𝙖𝙩𝙖𝘽𝙤𝙩𝙇𝙞𝙩𝙚-𝙈𝘿 🌻🐈'
-global.author = '𝙂𝙖𝙩𝙖 𝘿𝙞𝙤𝙨'
+global.packname = 'HBB'
+global.author = '23'
 global.policyGB = 'github.com/JR23CR/bot-MD/blob/main/terms.md'
 
 // ES ➜ Está parte es para mostrar el contacto de alguien al usar #contacto
