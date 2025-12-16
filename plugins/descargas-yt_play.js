@@ -1,8 +1,9 @@
 import yts from 'yt-search'
-import ytdl from 'ytdl-core'
-import fs from 'fs'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import fs from 'fs'
+import path from 'path'
+
 const execPromise = promisify(exec)
 
 let handler = async (m, {conn, command, args, text, usedPrefix}) => {
@@ -20,11 +21,23 @@ try {
         return m.reply('❌ No se encontraron resultados')
     }
 
+    // Convertir duración a segundos
+    const durationParts = video.timestamp.split(':').map(Number)
+    let durationInSeconds = 0
+    if (durationParts.length === 3) {
+        durationInSeconds = durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]
+    } else if (durationParts.length === 2) {
+        durationInSeconds = durationParts[0] * 60 + durationParts[1]
+    }
+
     let caption = `╭━━━━━━━━━⬣
 ┃ 🎬 *YOUTUBE*
 ┃┈┈┈┈┈┈┈┈┈┈┈┈┈
 ┃▢ 📌 *Título:*
 ┃ ${video.title}
+┃┈┈┈┈┈┈┈┈┈┈┈┈┈
+┃▢ 📺 *Canal:*
+┃ ${video.author.name}
 ┃┈┈┈┈┈┈┈┈┈┈┈┈┈
 ┃▢ ⏱️ *Duración:*
 ┃ ${video.timestamp}
@@ -53,7 +66,9 @@ _Responde a este mensaje con la opción que desees_`
     global.ytPlayQueue[m.sender] = {
         url: video.url,
         title: video.title,
+        author: video.author.name,
         thumbnail: video.thumbnail,
+        duration: durationInSeconds,
         timestamp: Date.now(),
         messageId: sentMsg.key.id
     }
@@ -88,121 +103,164 @@ handler.before = async (m, { conn }) => {
     
     try {
         await m.react('⏳')
-        await m.reply('⏳ Descargando... Por favor espera...')
         
         const isAudio = text === 'audio'
         
+        // Verificar duración
+        if (isAudio && userQueue.duration > 600) {
+            await m.react('❌')
+            return m.reply('❌ El audio es muy largo. Máximo: 10 minutos.')
+        }
+        
+        if (!isAudio && userQueue.duration > 300) {
+            await m.react('❌')
+            return m.reply('❌ El video es muy largo. Máximo: 5 minutos.')
+        }
+        
+        await m.reply('⏳ Descargando... Por favor espera...')
+        
         console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-        console.log('🎵 INICIANDO DESCARGA DE YOUTUBE')
+        console.log('🎵 DESCARGA CON YT-DLP')
         console.log(`📝 Título: ${userQueue.title}`)
         console.log(`🔗 URL: ${userQueue.url}`)
         console.log(`📦 Tipo: ${isAudio ? 'Audio' : 'Video'}`)
+        console.log(`⏱️ Duración: ${userQueue.duration}s`)
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
 
-        // Verificar si el video existe y obtener información
-        console.log('🔍 Verificando video...')
-        const info = await ytdl.getInfo(userQueue.url)
-        console.log(`✅ Video encontrado: ${info.videoDetails.title}`)
-        console.log(`⏱️ Duración: ${info.videoDetails.lengthSeconds}s`)
+        // Verificar si yt-dlp está instalado
+        try {
+            await execPromise('yt-dlp --version')
+            console.log('✅ yt-dlp encontrado')
+        } catch (error) {
+            console.log('❌ yt-dlp no está instalado')
+            await m.react('❌')
+            return m.reply(`❌ *yt-dlp no está instalado*
 
-        // Limpiar nombre de archivo
+Para instalar yt-dlp:
+
+*En Termux:*
+\`\`\`
+pkg install python
+pip install yt-dlp
+\`\`\`
+
+*En Ubuntu/Linux:*
+\`\`\`
+sudo apt install python3-pip
+pip3 install yt-dlp
+\`\`\`
+
+*En Windows:*
+Descarga desde: https://github.com/yt-dlp/yt-dlp/releases`)
+        }
+
+        const tmpDir = './tmp'
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true })
+        }
+
         const cleanTitle = userQueue.title
             .replace(/[^\w\s-]/g, '')
             .replace(/\s+/g, '_')
             .substring(0, 50)
         
         const timestamp = Date.now()
-        const tmpDir = './tmp'
-        
-        // Crear directorio tmp si no existe
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true })
-            console.log('📁 Directorio tmp creado')
-        }
 
         if (isAudio) {
-            console.log('🎵 Descargando audio...')
+            console.log('🎵 Descargando audio con yt-dlp...')
             
-            // Archivo temporal
-            const inputFile = `${tmpDir}/${cleanTitle}_${timestamp}_temp.mp4`
-            const outputFile = `${tmpDir}/${cleanTitle}_${timestamp}.mp3`
-            filePath = outputFile
-
-            // Descargar audio de mejor calidad
-            const audioStream = ytdl(userQueue.url, {
-                quality: 'highestaudio',
-                filter: 'audioonly'
-            })
-
-            const writeStream = fs.createWriteStream(inputFile)
+            const outputTemplate = `${tmpDir}/${cleanTitle}_${timestamp}.%(ext)s`
+            const command = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" "${userQueue.url}"`
             
-            await new Promise((resolve, reject) => {
-                audioStream.pipe(writeStream)
-                audioStream.on('error', reject)
-                writeStream.on('finish', resolve)
-                writeStream.on('error', reject)
+            console.log(`🔧 Comando: ${command}`)
+            
+            const { stdout, stderr } = await execPromise(command, { 
+                maxBuffer: 1024 * 1024 * 50 // 50MB buffer
             })
-
-            console.log('✅ Audio descargado')
-            console.log('🔄 Convirtiendo a MP3...')
-
-            // Convertir a MP3 con ffmpeg
-            try {
-                await execPromise(`ffmpeg -i "${inputFile}" -vn -ar 44100 -ac 2 -b:a 192k "${outputFile}"`)
-                console.log('✅ Conversión completada')
-                
-                // Eliminar archivo temporal
-                if (fs.existsSync(inputFile)) {
-                    fs.unlinkSync(inputFile)
-                }
-            } catch (ffmpegError) {
-                console.log('⚠️ FFmpeg no disponible, enviando audio original')
-                // Si ffmpeg falla, usar el archivo original
-                if (fs.existsSync(inputFile)) {
-                    fs.renameSync(inputFile, outputFile)
-                }
+            
+            if (stderr && !stderr.includes('Deleting original file')) {
+                console.log('⚠️ Stderr:', stderr)
             }
-
+            
+            // Buscar el archivo descargado
+            const files = fs.readdirSync(tmpDir).filter(file => 
+                file.startsWith(`${cleanTitle}_${timestamp}`) && file.endsWith('.mp3')
+            )
+            
+            if (files.length === 0) {
+                throw new Error('No se encontró el archivo descargado')
+            }
+            
+            filePath = path.join(tmpDir, files[0])
+            console.log('✅ Audio descargado:', filePath)
+            
+            // Verificar tamaño
+            const stats = fs.statSync(filePath)
+            const fileSizeMB = stats.size / (1024 * 1024)
+            console.log(`📦 Tamaño: ${fileSizeMB.toFixed(2)} MB`)
+            
+            if (fileSizeMB > 15) {
+                fs.unlinkSync(filePath)
+                await m.react('❌')
+                return m.reply('❌ El archivo es muy grande (>15MB). Intenta con un video más corto.')
+            }
+            
             console.log('📤 Enviando audio...')
             
-            // Enviar audio
             await conn.sendMessage(m.chat, {
-                audio: fs.readFileSync(outputFile),
+                audio: fs.readFileSync(filePath),
                 mimetype: 'audio/mpeg',
                 fileName: `${userQueue.title}.mp3`,
                 ptt: false
             }, { quoted: m })
 
         } else {
-            console.log('🎥 Descargando video...')
+            console.log('🎥 Descargando video con yt-dlp...')
             
-            const videoFile = `${tmpDir}/${cleanTitle}_${timestamp}.mp4`
-            filePath = videoFile
-
-            // Descargar video en calidad 360p (balance entre calidad y tamaño)
-            const videoStream = ytdl(userQueue.url, {
-                quality: '18', // 360p
-                filter: format => format.container === 'mp4' && format.hasVideo && format.hasAudio
-            })
-
-            const writeStream = fs.createWriteStream(videoFile)
+            const outputTemplate = `${tmpDir}/${cleanTitle}_${timestamp}.%(ext)s`
+            // Descargar en formato 360p o menor
+            const command = `yt-dlp -f "best[height<=360]" --merge-output-format mp4 -o "${outputTemplate}" "${userQueue.url}"`
             
-            await new Promise((resolve, reject) => {
-                videoStream.pipe(writeStream)
-                videoStream.on('error', reject)
-                writeStream.on('finish', resolve)
-                writeStream.on('error', reject)
+            console.log(`🔧 Comando: ${command}`)
+            
+            const { stdout, stderr } = await execPromise(command, { 
+                maxBuffer: 1024 * 1024 * 50
             })
-
-            console.log('✅ Video descargado')
+            
+            if (stderr && !stderr.includes('Deleting original file')) {
+                console.log('⚠️ Stderr:', stderr)
+            }
+            
+            // Buscar el archivo descargado
+            const files = fs.readdirSync(tmpDir).filter(file => 
+                file.startsWith(`${cleanTitle}_${timestamp}`) && file.endsWith('.mp4')
+            )
+            
+            if (files.length === 0) {
+                throw new Error('No se encontró el archivo descargado')
+            }
+            
+            filePath = path.join(tmpDir, files[0])
+            console.log('✅ Video descargado:', filePath)
+            
+            // Verificar tamaño
+            const stats = fs.statSync(filePath)
+            const fileSizeMB = stats.size / (1024 * 1024)
+            console.log(`📦 Tamaño: ${fileSizeMB.toFixed(2)} MB`)
+            
+            if (fileSizeMB > 15) {
+                fs.unlinkSync(filePath)
+                await m.react('❌')
+                return m.reply('❌ El archivo es muy grande (>15MB). Intenta con un video más corto.')
+            }
+            
             console.log('📤 Enviando video...')
-
-            // Enviar video
+            
             await conn.sendMessage(m.chat, {
-                video: fs.readFileSync(videoFile),
+                video: fs.readFileSync(filePath),
                 mimetype: 'video/mp4',
                 fileName: `${userQueue.title}.mp4`,
-                caption: `🎬 *${userQueue.title}*`
+                caption: `🎬 *${userQueue.title}*\n📺 ${userQueue.author}`
             }, { quoted: m })
         }
 
@@ -216,9 +274,9 @@ handler.before = async (m, { conn }) => {
                     fs.unlinkSync(filePath)
                     console.log('🗑️ Archivo temporal eliminado')
                 } catch (e) {
-                    console.log('⚠️ No se pudo eliminar archivo temporal:', e.message)
+                    console.log('⚠️ No se pudo eliminar:', e.message)
                 }
-            }, 60000) // Eliminar después de 1 minuto
+            }, 60000)
         }
 
         delete global.ytPlayQueue[m.sender]
@@ -232,26 +290,25 @@ handler.before = async (m, { conn }) => {
         
         let errorMsg = '❌ *Error en la descarga*\n\n'
         
-        if (error.message.includes('No video id found')) {
-            errorMsg += 'El enlace del video no es válido.'
+        if (error.message.includes('yt-dlp')) {
+            errorMsg += 'yt-dlp no está instalado o no funciona correctamente.'
         } else if (error.message.includes('Video unavailable')) {
-            errorMsg += 'El video no está disponible o es privado.'
-        } else if (error.message.includes('429')) {
-            errorMsg += 'Demasiadas solicitudes. Intenta de nuevo en unos minutos.'
-        } else if (error.message.includes('ENOSPC')) {
-            errorMsg += 'No hay espacio suficiente en el servidor.'
+            errorMsg += 'El video no está disponible.'
+        } else if (error.message.includes('Private video')) {
+            errorMsg += 'El video es privado.'
+        } else if (error.message.includes('not found')) {
+            errorMsg += 'No se encontró el archivo descargado.'
         } else {
-            errorMsg += `Error: ${error.message}\n\nIntenta con otro video o más tarde.`
+            errorMsg += `Error: ${error.message}\n\nIntenta con otro video.`
         }
         
         await m.reply(errorMsg)
         
-        // Limpiar archivos en caso de error
         if (filePath && fs.existsSync(filePath)) {
             try {
                 fs.unlinkSync(filePath)
             } catch (e) {
-                console.log('⚠️ No se pudo eliminar archivo:', e.message)
+                console.log('⚠️ Error al eliminar:', e.message)
             }
         }
         
