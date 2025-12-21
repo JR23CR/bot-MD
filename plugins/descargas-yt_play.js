@@ -9,7 +9,7 @@ const LimitVid = 425 * 1024 * 1024 // 425MB
 let tempStorage = {}
 
 const handler = async (m, {conn, command, args, text, usedPrefix}) => {
-if (!text) return conn.reply(m.chat, `${lenguajeGB['smsAvisoMG']()}${mid.smsMalused4}\n*${usedPrefix + command} Billie Eilish - Bellyache*`, m)
+if (!text) return conn.reply(m.chat, `${lenguajeGB['smsAvisoMG']()}${lenguajeGB.smsMalused4}\n*${usedPrefix + command} Billie Eilish - Bellyache*`, m)
 const yt_play = await search(args.join(' '))
 const ytplay2 = await yts(text)
 const texto1 = `⌘━─━─≪ *YOUTUBE* ≫─━─━⌘
