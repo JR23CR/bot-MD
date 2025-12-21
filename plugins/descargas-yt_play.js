@@ -1,6 +1,5 @@
 import fetch from 'node-fetch'
 import yts from 'yt-search'
-import ytdl from 'ytdl-core'
 
 const LimitAud = 725 * 1024 * 1024 // 725MB
 const LimitVid = 425 * 1024 * 1024 // 425MB
@@ -40,7 +39,7 @@ const handler = async (m, {conn, command, args, text, usedPrefix}) => {
 > Para descargas en audio reacciona con "🎶"
 > Para descargar en video reacciona con "📽"`.trim()
 
-  tempStorage[m.sender] = {url: video.url, title: video.title}
+  tempStorage[m.sender] = {url: video.url, title: video.title, videoId: video.videoId}
 
   await conn.sendFile(m.chat, video.thumbnail, 'thumbnail.jpg', texto1, m)
 }
@@ -57,80 +56,132 @@ handler.before = async (m, {conn}) => {
   try {
     await conn.reply(m.chat, `${lenguajeGB['smsAvisoEG']()}${isAudio ? '🎵 Descargando audio...' : '📹 Descargando video...'}`, m)
     
-    // Intentar con diferentes APIs
     let downloadUrl = null
-    let mediaType = isAudio ? 'audio' : 'video'
+    let apiSuccess = false
     
-    // API 1: try-ytdl-core
-    try {
-      const info = await ytdl.getInfo(userVideoData.url)
-      if (isAudio) {
-        const audioFormat = ytdl.chooseFormat(info.formats, { quality: 'highestaudio', filter: 'audioonly' })
-        downloadUrl = audioFormat.url
-      } else {
-        const videoFormat = ytdl.chooseFormat(info.formats, { quality: 'highest', filter: format => format.hasVideo && format.hasAudio })
-        downloadUrl = videoFormat.url
+    // API 1: AllVideoDownloader (muy confiable)
+    if (!apiSuccess) {
+      try {
+        const apiUrl = `https://allvideodownloader.cc/wp-json/aio-dl/video-data/`
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: `url=${encodeURIComponent(userVideoData.url)}`
+        })
+        const data = await response.json()
+        
+        if (data && data.medias) {
+          if (isAudio) {
+            const audioMedia = data.medias.find(m => m.audioAvailable && m.extension === 'mp3')
+            if (audioMedia) {
+              downloadUrl = audioMedia.url
+              apiSuccess = true
+              console.log('✅ AllVideoDownloader funcionó')
+            }
+          } else {
+            const videoMedia = data.medias.find(m => m.videoAvailable && m.quality)
+            if (videoMedia) {
+              downloadUrl = videoMedia.url
+              apiSuccess = true
+              console.log('✅ AllVideoDownloader funcionó')
+            }
+          }
+        }
+      } catch (e) {
+        console.log('AllVideoDownloader falló:', e.message)
       }
-    } catch (e) {
-      console.log('ytdl-core falló:', e.message)
     }
     
-    // API 2: Cobalt API
-    if (!downloadUrl) {
+    // API 2: YT5S (muy popular y estable)
+    if (!apiSuccess) {
       try {
-        const cobaltRes = await fetch('https://api.cobalt.tools/api/json', {
+        const analyzeRes = await fetch('https://yt5s.io/api/ajaxSearch', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: `q=${encodeURIComponent(userVideoData.url)}&vt=home`
+        })
+        const analyzeData = await analyzeRes.json()
+        
+        if (analyzeData.status === 'ok') {
+          const kValue = analyzeData.kc || analyzeData.k_query
+          const format = isAudio ? 'mp3' : 'mp4'
+          
+          const convertRes = await fetch('https://yt5s.io/api/ajaxConvert', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `vid=${userVideoData.videoId}&k=${kValue}`
+          })
+          const convertData = await convertRes.json()
+          
+          if (convertData.status === 'ok' && convertData.dlink) {
+            downloadUrl = convertData.dlink
+            apiSuccess = true
+            console.log('✅ YT5S funcionó')
+          }
+        }
+      } catch (e) {
+        console.log('YT5S falló:', e.message)
+      }
+    }
+    
+    // API 3: Loader.to (alternativa confiable)
+    if (!apiSuccess) {
+      try {
+        const format = isAudio ? 'mp3' : 'mp4'
+        const loaderRes = await fetch(`https://loader.to/ajax/download.php?format=${format}&url=${encodeURIComponent(userVideoData.url)}`)
+        const loaderData = await loaderRes.json()
+        
+        if (loaderData.success && loaderData.download_url) {
+          downloadUrl = loaderData.download_url
+          apiSuccess = true
+          console.log('✅ Loader.to funcionó')
+        }
+      } catch (e) {
+        console.log('Loader.to falló:', e.message)
+      }
+    }
+    
+    // API 4: Y2Mate.nu (respaldo confiable)
+    if (!apiSuccess) {
+      try {
+        const y2mateRes = await fetch(`https://www.y2mate.nu/api/v1/getDownloadURL?url=${encodeURIComponent(userVideoData.url)}&type=${isAudio ? 'audio' : 'video'}`)
+        const y2mateData = await y2mateRes.json()
+        
+        if (y2mateData.downloadURL) {
+          downloadUrl = y2mateData.downloadURL
+          apiSuccess = true
+          console.log('✅ Y2Mate.nu funcionó')
+        }
+      } catch (e) {
+        console.log('Y2Mate.nu falló:', e.message)
+      }
+    }
+    
+    // API 5: YTMP34 (muy rápida)
+    if (!apiSuccess) {
+      try {
+        const ytmp34Res = await fetch(`https://ytmp34.cc/api/convert`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             url: userVideoData.url,
-            vQuality: '720',
-            aFormat: 'mp3',
-            isAudioOnly: isAudio
+            type: isAudio ? 'audio' : 'video'
           })
         })
-        const cobaltData = await cobaltRes.json()
-        if (cobaltData.status === 'stream' || cobaltData.status === 'redirect') {
-          downloadUrl = cobaltData.url
+        const ytmp34Data = await ytmp34Res.json()
+        
+        if (ytmp34Data.download) {
+          downloadUrl = ytmp34Data.download
+          apiSuccess = true
+          console.log('✅ YTMP34 funcionó')
         }
       } catch (e) {
-        console.log('Cobalt API falló:', e.message)
+        console.log('YTMP34 falló:', e.message)
       }
     }
     
-    // API 3: Invidious
-    if (!downloadUrl) {
-      try {
-        const invidiousRes = await fetch(`https://vid.puffyan.us/api/v1/videos/${getVideoId(userVideoData.url)}`)
-        const invidiousData = await invidiousRes.json()
-        if (isAudio) {
-          const audioUrl = invidiousData.adaptiveFormats?.find(f => f.type?.includes('audio'))?.url
-          if (audioUrl) downloadUrl = audioUrl
-        } else {
-          const videoUrl = invidiousData.formatStreams?.[0]?.url
-          if (videoUrl) downloadUrl = videoUrl
-        }
-      } catch (e) {
-        console.log('Invidious falló:', e.message)
-      }
-    }
-    
-    // API 4: Y2mate alternative
-    if (!downloadUrl) {
-      try {
-        const y2mateRes = await fetch(`https://api-cdn.saveservall.xyz/?url=${encodeURIComponent(userVideoData.url)}`)
-        const y2mateData = await y2mateRes.json()
-        if (isAudio && y2mateData.audio) {
-          downloadUrl = y2mateData.audio
-        } else if (!isAudio && y2mateData.video) {
-          downloadUrl = y2mateData.video
-        }
-      } catch (e) {
-        console.log('Y2mate alternative falló:', e.message)
-      }
-    }
-    
-    if (!downloadUrl) {
-      return await conn.reply(m.chat, '❌ No se pudo descargar el archivo. Todas las APIs están caídas. Intenta más tarde.', m)
+    if (!downloadUrl || !apiSuccess) {
+      return await conn.reply(m.chat, '❌ Lo siento, todas las APIs de descarga están temporalmente caídas. Por favor intenta:\n\n1. En unos minutos\n2. Con otro video\n3. Usando el enlace directo: ' + userVideoData.url, m)
     }
     
     // Enviar el archivo
@@ -168,9 +219,11 @@ handler.before = async (m, {conn}) => {
       }
     }
     
+    console.log('✅ Descarga completada exitosamente')
+    
   } catch (error) {
     console.error('Error en descarga:', error)
-    await conn.reply(m.chat, `❌ Error al descargar: ${error.message}`, m)
+    await conn.reply(m.chat, `❌ Error al descargar: ${error.message}\n\nIntenta con otro video o más tarde.`, m)
   } finally {
     delete tempStorage[m.sender]
   }
@@ -214,10 +267,4 @@ async function getFileSize(url) {
   } catch {
     return 0
   }
-}
-
-function getVideoId(url) {
-  const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
-  const match = url.match(regex)
-  return match ? match[1] : null
 }
