@@ -41,23 +41,15 @@ m.chat,
 yt_play[0].thumbnail,
 'error.jpg',
 texto1 + '\n> Para descargas en audio reacciona con "🎶"\n> Para descargar en video reacciona con "📽"',
-m,
-null,
-fake
+m
 )
 } else {
 await conn.sendMessage(
 m.chat,
 {
 image: {url: yt_play[0].thumbnail},
-caption: gt,
-footer: texto1,
-buttons: [
-{buttonId: `.ytmp3 ${yt_play[0].url}`, buttonText: {displayText: '𓃠 𝗔 𝗨 𝗗 𝗜 𝗢'}, type: 1},
-{buttonId: `.ytmp4 ${yt_play[0].url}`, buttonText: {displayText: '𓃠 𝗩 𝗜 𝗗 𝗘 𝗢'}, type: 1}
-],
-viewOnce: true,
-headerType: 4
+caption: texto1,
+footer: wm
 },
 {quoted: m}
 )
@@ -150,7 +142,7 @@ return {mediaData, isDirect}
 }
 try {
 if (text === '🎶' || text === 'audio') {
-await conn.reply(m.chat, lenguajeGB['smsAvisoEG']() + lenguajeGB.smsAud, fkontak, m || null)
+await conn.reply(m.chat, lenguajeGB['smsAvisoEG']() + lenguajeGB.smsAud, m)
 const {mediaData, isDirect} = await download(audioApis)
 if (mediaData) {
 const fileSize = await getFileSize(mediaData)
@@ -158,27 +150,27 @@ if (fileSize > LimitAud) {
 await conn.sendMessage(
 m.chat,
 {document: isDirect ? mediaData : {url: mediaData}, mimetype: 'audio/mpeg', fileName: `${userVideoData.title}.mp3`},
-{quoted: m || null}
+{quoted: m}
 )
 } else {
-await conn.sendMessage(m.chat, {audio: isDirect ? mediaData : {url: mediaData}, mimetype: 'audio/mpeg'}, {quoted: m || null})
+await conn.sendMessage(m.chat, {audio: isDirect ? mediaData : {url: mediaData}, mimetype: 'audio/mpeg'}, {quoted: m})
 }
 } else {
-await conn.reply(m.chat, '❌ No se pudo descargar el audio', m || null)
+await conn.reply(m.chat, '❌ No se pudo descargar el audio', m)
 }
 } else if (text === '📽' || text === 'video') {
-await conn.reply(m.chat, lenguajeGB['smsAvisoEG']() + lenguajeGB.smsVid, fkontak, m || null)
+await conn.reply(m.chat, lenguajeGB['smsAvisoEG']() + lenguajeGB.smsVid, m)
 const {mediaData, isDirect} = await download(videoApis)
 if (mediaData) {
 const fileSize = await getFileSize(mediaData)
 const messageOptions = {fileName: `${userVideoData.title}.mp4`, caption: `⟡ *${userVideoData.title}*\n> ${wm}`, mimetype: 'video/mp4'}
 if (fileSize > LimitVid) {
-await conn.sendMessage(m.chat, {document: isDirect ? mediaData : {url: mediaData}, ...messageOptions}, {quoted: m || null})
+await conn.sendMessage(m.chat, {document: isDirect ? mediaData : {url: mediaData}, ...messageOptions}, {quoted: m})
 } else {
-await conn.sendMessage(m.chat, {video: isDirect ? mediaData : {url: mediaData}, ...messageOptions}, {quoted: m || null})
+await conn.sendMessage(m.chat, {video: isDirect ? mediaData : {url: mediaData}, ...messageOptions}, {quoted: m})
 }
 } else {
-await conn.reply(m.chat, '❌ No se pudo descargar el video', m || null)
+await conn.reply(m.chat, '❌ No se pudo descargar el video', m)
 }
 }
 } catch (error) {
