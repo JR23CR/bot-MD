@@ -59,173 +59,101 @@ handler.before = async (m, {conn}) => {
   const isAudio = text === '🎶' || text === 'audio'
   
   try {
-    await conn.reply(m.chat, `${lenguajeGB['smsAvisoEG']()}${isAudio ? '🎵 Descargando audio...' : '📹 Descargando video...'}`, m)
+    await conn.reply(m.chat, `${lenguajeGB['smsAvisoEG']()}${isAudio ? '🎵 Descargando audio, esto puede tardar un momento...' : '📹 Descargando video, esto puede tardar un momento...'}`, m)
     
-    let downloadUrl = null
+    const tmpDir = './tmp'
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, {recursive: true})
+    
+    const sanitizedTitle = userVideoData.title.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').substring(0, 50)
+    const timestamp = Date.now()
+    const outputPath = path.join(tmpDir, `${timestamp}_${sanitizedTitle}`)
+    
     let localFile = null
     
-    // Método 1: Usar yt-dlp si está instalado
+    // Usar python -m yt_dlp (ya verificamos que funciona)
     try {
-      const tmpDir = './tmp'
-      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir)
-      
-      const sanitizedTitle = userVideoData.title.replace(/[^\w\s-]/g, '').substring(0, 50)
-      const outputFile = path.join(tmpDir, `${Date.now()}_${sanitizedTitle}`)
-      
       if (isAudio) {
-        const cmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputFile}.%(ext)s" "${userVideoData.url}"`
-        await execAsync(cmd, {timeout: 180000}) // 3 minutos timeout
-        localFile = `${outputFile}.mp3`
+        // Descargar solo audio en MP3
+        const cmd = `python -m yt_dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}.%(ext)s" "${userVideoData.url}"`
+        console.log('Ejecutando:', cmd)
+        
+        const {stdout, stderr} = await execAsync(cmd, {
+          timeout: 180000, // 3 minutos
+          maxBuffer: 1024 * 1024 * 100 // 100MB buffer
+        })
+        
+        console.log('yt-dlp output:', stdout)
+        if (stderr) console.log('yt-dlp stderr:', stderr)
+        
+        localFile = `${outputPath}.mp3`
+        
       } else {
-        const cmd = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputFile}.%(ext)s" "${userVideoData.url}"`
-        await execAsync(cmd, {timeout: 300000}) // 5 minutos timeout
-        localFile = `${outputFile}.mp4`
+        // Descargar video en MP4
+        const cmd = `python -m yt_dlp -f "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4][height<=720]/best" --merge-output-format mp4 -o "${outputPath}.%(ext)s" "${userVideoData.url}"`
+        console.log('Ejecutando:', cmd)
+        
+        const {stdout, stderr} = await execAsync(cmd, {
+          timeout: 300000, // 5 minutos
+          maxBuffer: 1024 * 1024 * 200 // 200MB buffer
+        })
+        
+        console.log('yt-dlp output:', stdout)
+        if (stderr) console.log('yt-dlp stderr:', stderr)
+        
+        localFile = `${outputPath}.mp4`
       }
       
-      if (fs.existsSync(localFile)) {
-        console.log('✅ yt-dlp descargó exitosamente')
-      } else {
-        throw new Error('Archivo no encontrado después de yt-dlp')
-      }
-    } catch (ytdlpError) {
-      console.log('yt-dlp no disponible o falló:', ytdlpError.message)
-      localFile = null
-    }
-    
-    // Método 2: APIs de respaldo (si yt-dlp falla)
-    if (!localFile) {
-      // API: DownloaderBot (Telegram-based, muy confiable)
-      try {
-        const telegramApi = `https://api.telegram.org/bot6847456898:AAGx5vyWVxTQIJ8KJUQGz5nR8XGxYhf2rDo/sendMessage`
-        const chatId = '6847456898'
-        
-        const response = await fetch(`https://www.y2mate.com/mates/analyzeV2/ajax`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-          body: `k_query=${encodeURIComponent(userVideoData.url)}&k_page=home&hl=en&q_auto=0`
-        })
-        const data = await response.json()
-        
-        if (data.status === 'ok') {
-          const links = data.links
-          let selectedLink
-          
-          if (isAudio) {
-            selectedLink = links.mp3?.['mp3128'] || links.mp3?.auto || Object.values(links.mp3 || {})[0]
-          } else {
-            selectedLink = links.mp4?.['360'] || links.mp4?.auto || Object.values(links.mp4 || {})[0]
-          }
-          
-          if (selectedLink && selectedLink.k) {
-            const convertRes = await fetch(`https://www.y2mate.com/mates/convertV2/index`, {
-              method: 'POST',
-              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-              body: `vid=${userVideoData.videoId}&k=${selectedLink.k}`
-            })
-            const convertData = await convertRes.json()
-            
-            if (convertData.status === 'ok' && convertData.dlink) {
-              downloadUrl = convertData.dlink
-              console.log('✅ Y2Mate API funcionó')
-            }
-          }
+      // Verificar si el archivo existe
+      if (!fs.existsSync(localFile)) {
+        // Buscar el archivo con cualquier extensión
+        const files = fs.readdirSync(tmpDir).filter(f => f.startsWith(`${timestamp}_${sanitizedTitle}`))
+        if (files.length > 0) {
+          localFile = path.join(tmpDir, files[0])
+          console.log('Archivo encontrado:', localFile)
+        } else {
+          throw new Error('Archivo no encontrado después de la descarga')
         }
-      } catch (e) {
-        console.log('Y2Mate API falló:', e.message)
       }
+      
+      console.log('✅ Descarga completada:', localFile)
+      
+    } catch (error) {
+      console.error('Error en yt-dlp:', error)
+      throw new Error(`No se pudo descargar: ${error.message}`)
     }
     
-    // Método 3: SaveFrom.net API
-    if (!localFile && !downloadUrl) {
-      try {
-        const savefromRes = await fetch(`https://yt1s.io/api/ajaxSearch/index`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-          body: `q=${encodeURIComponent(userVideoData.url)}&vt=home`
-        })
-        const savefromData = await savefromRes.json()
-        
-        if (savefromData.status === 'ok') {
-          const links = savefromData.links
-          const key = isAudio ? Object.keys(links.mp3)[0] : Object.keys(links.mp4)[0]
-          const selectedFormat = isAudio ? links.mp3[key] : links.mp4[key]
-          
-          if (selectedFormat && selectedFormat.k) {
-            const convertRes = await fetch(`https://yt1s.io/api/ajaxConvert/convert`, {
-              method: 'POST',
-              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-              body: `vid=${userVideoData.videoId}&k=${selectedFormat.k}`
-            })
-            const convertData = await convertRes.json()
-            
-            if (convertData.status === 'ok' && convertData.dlink) {
-              downloadUrl = convertData.dlink
-              console.log('✅ SaveFrom funcionó')
-            }
-          }
-        }
-      } catch (e) {
-        console.log('SaveFrom falló:', e.message)
-      }
-    }
-    
-    // Verificar si tenemos algo para enviar
-    if (!localFile && !downloadUrl) {
-      return await conn.reply(m.chat, 
-        '❌ No se pudo descargar el archivo.\n\n' +
-        '💡 *Solución*: Instala yt-dlp para descargas más confiables:\n\n' +
-        '*Windows:*\n```pip install yt-dlp```\n\n' +
-        '*Termux:*\n```pkg install yt-dlp```\n\n' +
-        'O intenta con otro video más corto.', m)
-    }
+    // Verificar tamaño del archivo
+    const stats = fs.statSync(localFile)
+    const fileSize = stats.size
+    console.log(`Tamaño del archivo: ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
     
     // Enviar el archivo
     if (isAudio) {
-      if (localFile) {
-        const fileSize = fs.statSync(localFile).size
-        if (fileSize > LimitAud) {
-          await conn.sendMessage(m.chat, {
-            document: fs.readFileSync(localFile),
-            mimetype: 'audio/mpeg',
-            fileName: `${userVideoData.title}.mp3`
-          }, {quoted: m})
-        } else {
-          await conn.sendMessage(m.chat, {
-            audio: fs.readFileSync(localFile),
-            mimetype: 'audio/mpeg',
-            fileName: `${userVideoData.title}.mp3`
-          }, {quoted: m})
-        }
-        fs.unlinkSync(localFile) // Eliminar archivo temporal
-      } else {
+      if (fileSize > LimitAud) {
         await conn.sendMessage(m.chat, {
-          audio: {url: downloadUrl},
+          document: fs.readFileSync(localFile),
           mimetype: 'audio/mpeg',
           fileName: `${userVideoData.title}.mp3`
         }, {quoted: m})
-      }
-    } else {
-      if (localFile) {
-        const fileSize = fs.statSync(localFile).size
-        if (fileSize > LimitVid) {
-          await conn.sendMessage(m.chat, {
-            document: fs.readFileSync(localFile),
-            mimetype: 'video/mp4',
-            fileName: `${userVideoData.title}.mp4`,
-            caption: `⟡ *${userVideoData.title}*\n> ${wm}`
-          }, {quoted: m})
-        } else {
-          await conn.sendMessage(m.chat, {
-            video: fs.readFileSync(localFile),
-            mimetype: 'video/mp4',
-            fileName: `${userVideoData.title}.mp4`,
-            caption: `⟡ *${userVideoData.title}*\n> ${wm}`
-          }, {quoted: m})
-        }
-        fs.unlinkSync(localFile) // Eliminar archivo temporal
       } else {
         await conn.sendMessage(m.chat, {
-          video: {url: downloadUrl},
+          audio: fs.readFileSync(localFile),
+          mimetype: 'audio/mpeg',
+          fileName: `${userVideoData.title}.mp3`,
+          ptt: false
+        }, {quoted: m})
+      }
+    } else {
+      if (fileSize > LimitVid) {
+        await conn.sendMessage(m.chat, {
+          document: fs.readFileSync(localFile),
+          mimetype: 'video/mp4',
+          fileName: `${userVideoData.title}.mp4`,
+          caption: `⟡ *${userVideoData.title}*\n> ${wm}`
+        }, {quoted: m})
+      } else {
+        await conn.sendMessage(m.chat, {
+          video: fs.readFileSync(localFile),
           mimetype: 'video/mp4',
           fileName: `${userVideoData.title}.mp4`,
           caption: `⟡ *${userVideoData.title}*\n> ${wm}`
@@ -233,11 +161,19 @@ handler.before = async (m, {conn}) => {
       }
     }
     
-    console.log('✅ Descarga completada exitosamente')
+    // Limpiar archivo temporal
+    try {
+      fs.unlinkSync(localFile)
+      console.log('✅ Archivo temporal eliminado')
+    } catch (e) {
+      console.log('No se pudo eliminar archivo temporal:', e.message)
+    }
+    
+    console.log('✅ Envío completado exitosamente')
     
   } catch (error) {
     console.error('Error en descarga:', error)
-    await conn.reply(m.chat, `❌ Error al descargar: ${error.message}`, m)
+    await conn.reply(m.chat, `❌ Error al descargar: ${error.message}\n\nIntenta con un video más corto o espera unos minutos.`, m)
   } finally {
     delete tempStorage[m.sender]
   }
