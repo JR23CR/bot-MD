@@ -1,6 +1,11 @@
 import fetch from 'node-fetch'
 import yts from 'yt-search'
+import {exec} from 'child_process'
+import {promisify} from 'util'
+import fs from 'fs'
+import path from 'path'
 
+const execAsync = promisify(exec)
 const LimitAud = 725 * 1024 * 1024 // 725MB
 const LimitVid = 425 * 1024 * 1024 // 425MB
 let tempStorage = {}
@@ -57,143 +62,141 @@ handler.before = async (m, {conn}) => {
     await conn.reply(m.chat, `${lenguajeGB['smsAvisoEG']()}${isAudio ? '🎵 Descargando audio...' : '📹 Descargando video...'}`, m)
     
     let downloadUrl = null
-    let apiSuccess = false
+    let localFile = null
     
-    // API 1: AllVideoDownloader (muy confiable)
-    if (!apiSuccess) {
+    // Método 1: Usar yt-dlp si está instalado
+    try {
+      const tmpDir = './tmp'
+      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir)
+      
+      const sanitizedTitle = userVideoData.title.replace(/[^\w\s-]/g, '').substring(0, 50)
+      const outputFile = path.join(tmpDir, `${Date.now()}_${sanitizedTitle}`)
+      
+      if (isAudio) {
+        const cmd = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputFile}.%(ext)s" "${userVideoData.url}"`
+        await execAsync(cmd, {timeout: 180000}) // 3 minutos timeout
+        localFile = `${outputFile}.mp3`
+      } else {
+        const cmd = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputFile}.%(ext)s" "${userVideoData.url}"`
+        await execAsync(cmd, {timeout: 300000}) // 5 minutos timeout
+        localFile = `${outputFile}.mp4`
+      }
+      
+      if (fs.existsSync(localFile)) {
+        console.log('✅ yt-dlp descargó exitosamente')
+      } else {
+        throw new Error('Archivo no encontrado después de yt-dlp')
+      }
+    } catch (ytdlpError) {
+      console.log('yt-dlp no disponible o falló:', ytdlpError.message)
+      localFile = null
+    }
+    
+    // Método 2: APIs de respaldo (si yt-dlp falla)
+    if (!localFile) {
+      // API: DownloaderBot (Telegram-based, muy confiable)
       try {
-        const apiUrl = `https://allvideodownloader.cc/wp-json/aio-dl/video-data/`
-        const response = await fetch(apiUrl, {
+        const telegramApi = `https://api.telegram.org/bot6847456898:AAGx5vyWVxTQIJ8KJUQGz5nR8XGxYhf2rDo/sendMessage`
+        const chatId = '6847456898'
+        
+        const response = await fetch(`https://www.y2mate.com/mates/analyzeV2/ajax`, {
           method: 'POST',
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-          body: `url=${encodeURIComponent(userVideoData.url)}`
+          body: `k_query=${encodeURIComponent(userVideoData.url)}&k_page=home&hl=en&q_auto=0`
         })
         const data = await response.json()
         
-        if (data && data.medias) {
+        if (data.status === 'ok') {
+          const links = data.links
+          let selectedLink
+          
           if (isAudio) {
-            const audioMedia = data.medias.find(m => m.audioAvailable && m.extension === 'mp3')
-            if (audioMedia) {
-              downloadUrl = audioMedia.url
-              apiSuccess = true
-              console.log('✅ AllVideoDownloader funcionó')
-            }
+            selectedLink = links.mp3?.['mp3128'] || links.mp3?.auto || Object.values(links.mp3 || {})[0]
           } else {
-            const videoMedia = data.medias.find(m => m.videoAvailable && m.quality)
-            if (videoMedia) {
-              downloadUrl = videoMedia.url
-              apiSuccess = true
-              console.log('✅ AllVideoDownloader funcionó')
+            selectedLink = links.mp4?.['360'] || links.mp4?.auto || Object.values(links.mp4 || {})[0]
+          }
+          
+          if (selectedLink && selectedLink.k) {
+            const convertRes = await fetch(`https://www.y2mate.com/mates/convertV2/index`, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+              body: `vid=${userVideoData.videoId}&k=${selectedLink.k}`
+            })
+            const convertData = await convertRes.json()
+            
+            if (convertData.status === 'ok' && convertData.dlink) {
+              downloadUrl = convertData.dlink
+              console.log('✅ Y2Mate API funcionó')
             }
           }
         }
       } catch (e) {
-        console.log('AllVideoDownloader falló:', e.message)
+        console.log('Y2Mate API falló:', e.message)
       }
     }
     
-    // API 2: YT5S (muy popular y estable)
-    if (!apiSuccess) {
+    // Método 3: SaveFrom.net API
+    if (!localFile && !downloadUrl) {
       try {
-        const analyzeRes = await fetch('https://yt5s.io/api/ajaxSearch', {
+        const savefromRes = await fetch(`https://yt1s.io/api/ajaxSearch/index`, {
           method: 'POST',
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
           body: `q=${encodeURIComponent(userVideoData.url)}&vt=home`
         })
-        const analyzeData = await analyzeRes.json()
+        const savefromData = await savefromRes.json()
         
-        if (analyzeData.status === 'ok') {
-          const kValue = analyzeData.kc || analyzeData.k_query
-          const format = isAudio ? 'mp3' : 'mp4'
+        if (savefromData.status === 'ok') {
+          const links = savefromData.links
+          const key = isAudio ? Object.keys(links.mp3)[0] : Object.keys(links.mp4)[0]
+          const selectedFormat = isAudio ? links.mp3[key] : links.mp4[key]
           
-          const convertRes = await fetch('https://yt5s.io/api/ajaxConvert', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: `vid=${userVideoData.videoId}&k=${kValue}`
-          })
-          const convertData = await convertRes.json()
-          
-          if (convertData.status === 'ok' && convertData.dlink) {
-            downloadUrl = convertData.dlink
-            apiSuccess = true
-            console.log('✅ YT5S funcionó')
+          if (selectedFormat && selectedFormat.k) {
+            const convertRes = await fetch(`https://yt1s.io/api/ajaxConvert/convert`, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+              body: `vid=${userVideoData.videoId}&k=${selectedFormat.k}`
+            })
+            const convertData = await convertRes.json()
+            
+            if (convertData.status === 'ok' && convertData.dlink) {
+              downloadUrl = convertData.dlink
+              console.log('✅ SaveFrom funcionó')
+            }
           }
         }
       } catch (e) {
-        console.log('YT5S falló:', e.message)
+        console.log('SaveFrom falló:', e.message)
       }
     }
     
-    // API 3: Loader.to (alternativa confiable)
-    if (!apiSuccess) {
-      try {
-        const format = isAudio ? 'mp3' : 'mp4'
-        const loaderRes = await fetch(`https://loader.to/ajax/download.php?format=${format}&url=${encodeURIComponent(userVideoData.url)}`)
-        const loaderData = await loaderRes.json()
-        
-        if (loaderData.success && loaderData.download_url) {
-          downloadUrl = loaderData.download_url
-          apiSuccess = true
-          console.log('✅ Loader.to funcionó')
-        }
-      } catch (e) {
-        console.log('Loader.to falló:', e.message)
-      }
-    }
-    
-    // API 4: Y2Mate.nu (respaldo confiable)
-    if (!apiSuccess) {
-      try {
-        const y2mateRes = await fetch(`https://www.y2mate.nu/api/v1/getDownloadURL?url=${encodeURIComponent(userVideoData.url)}&type=${isAudio ? 'audio' : 'video'}`)
-        const y2mateData = await y2mateRes.json()
-        
-        if (y2mateData.downloadURL) {
-          downloadUrl = y2mateData.downloadURL
-          apiSuccess = true
-          console.log('✅ Y2Mate.nu funcionó')
-        }
-      } catch (e) {
-        console.log('Y2Mate.nu falló:', e.message)
-      }
-    }
-    
-    // API 5: YTMP34 (muy rápida)
-    if (!apiSuccess) {
-      try {
-        const ytmp34Res = await fetch(`https://ytmp34.cc/api/convert`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            url: userVideoData.url,
-            type: isAudio ? 'audio' : 'video'
-          })
-        })
-        const ytmp34Data = await ytmp34Res.json()
-        
-        if (ytmp34Data.download) {
-          downloadUrl = ytmp34Data.download
-          apiSuccess = true
-          console.log('✅ YTMP34 funcionó')
-        }
-      } catch (e) {
-        console.log('YTMP34 falló:', e.message)
-      }
-    }
-    
-    if (!downloadUrl || !apiSuccess) {
-      return await conn.reply(m.chat, '❌ Lo siento, todas las APIs de descarga están temporalmente caídas. Por favor intenta:\n\n1. En unos minutos\n2. Con otro video\n3. Usando el enlace directo: ' + userVideoData.url, m)
+    // Verificar si tenemos algo para enviar
+    if (!localFile && !downloadUrl) {
+      return await conn.reply(m.chat, 
+        '❌ No se pudo descargar el archivo.\n\n' +
+        '💡 *Solución*: Instala yt-dlp para descargas más confiables:\n\n' +
+        '*Windows:*\n```pip install yt-dlp```\n\n' +
+        '*Termux:*\n```pkg install yt-dlp```\n\n' +
+        'O intenta con otro video más corto.', m)
     }
     
     // Enviar el archivo
-    const fileSize = await getFileSize(downloadUrl)
-    
     if (isAudio) {
-      if (fileSize > LimitAud) {
-        await conn.sendMessage(m.chat, {
-          document: {url: downloadUrl},
-          mimetype: 'audio/mpeg',
-          fileName: `${userVideoData.title}.mp3`
-        }, {quoted: m})
+      if (localFile) {
+        const fileSize = fs.statSync(localFile).size
+        if (fileSize > LimitAud) {
+          await conn.sendMessage(m.chat, {
+            document: fs.readFileSync(localFile),
+            mimetype: 'audio/mpeg',
+            fileName: `${userVideoData.title}.mp3`
+          }, {quoted: m})
+        } else {
+          await conn.sendMessage(m.chat, {
+            audio: fs.readFileSync(localFile),
+            mimetype: 'audio/mpeg',
+            fileName: `${userVideoData.title}.mp3`
+          }, {quoted: m})
+        }
+        fs.unlinkSync(localFile) // Eliminar archivo temporal
       } else {
         await conn.sendMessage(m.chat, {
           audio: {url: downloadUrl},
@@ -202,13 +205,24 @@ handler.before = async (m, {conn}) => {
         }, {quoted: m})
       }
     } else {
-      if (fileSize > LimitVid) {
-        await conn.sendMessage(m.chat, {
-          document: {url: downloadUrl},
-          mimetype: 'video/mp4',
-          fileName: `${userVideoData.title}.mp4`,
-          caption: `⟡ *${userVideoData.title}*\n> ${wm}`
-        }, {quoted: m})
+      if (localFile) {
+        const fileSize = fs.statSync(localFile).size
+        if (fileSize > LimitVid) {
+          await conn.sendMessage(m.chat, {
+            document: fs.readFileSync(localFile),
+            mimetype: 'video/mp4',
+            fileName: `${userVideoData.title}.mp4`,
+            caption: `⟡ *${userVideoData.title}*\n> ${wm}`
+          }, {quoted: m})
+        } else {
+          await conn.sendMessage(m.chat, {
+            video: fs.readFileSync(localFile),
+            mimetype: 'video/mp4',
+            fileName: `${userVideoData.title}.mp4`,
+            caption: `⟡ *${userVideoData.title}*\n> ${wm}`
+          }, {quoted: m})
+        }
+        fs.unlinkSync(localFile) // Eliminar archivo temporal
       } else {
         await conn.sendMessage(m.chat, {
           video: {url: downloadUrl},
@@ -223,7 +237,7 @@ handler.before = async (m, {conn}) => {
     
   } catch (error) {
     console.error('Error en descarga:', error)
-    await conn.reply(m.chat, `❌ Error al descargar: ${error.message}\n\nIntenta con otro video o más tarde.`, m)
+    await conn.reply(m.chat, `❌ Error al descargar: ${error.message}`, m)
   } finally {
     delete tempStorage[m.sender]
   }
@@ -258,13 +272,4 @@ function secondString(seconds) {
   const mDisplay = m > 0 ? m + (m == 1 ? ' minuto, ' : ' minutos, ') : ''
   const sDisplay = s > 0 ? s + (s == 1 ? ' segundo' : ' segundos') : ''
   return dDisplay + hDisplay + mDisplay + sDisplay
-}
-
-async function getFileSize(url) {
-  try {
-    const response = await fetch(url, {method: 'HEAD'})
-    return parseInt(response.headers.get('content-length') || 0)
-  } catch {
-    return 0
-  }
 }
