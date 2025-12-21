@@ -70,22 +70,30 @@ handler.before = async (m, {conn}) => {
     
     let localFile = null
     
-    // Usar python -m yt_dlp (ya verificamos que funciona)
     try {
       if (isAudio) {
-        // Descargar solo audio en MP3
-        const cmd = `python -m yt_dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}.%(ext)s" "${userVideoData.url}"`
+        // Descargar audio sin conversión (acepta webm/m4a)
+        const cmd = `python -m yt_dlp -f "bestaudio" -o "${outputPath}.%(ext)s" "${userVideoData.url}"`
         console.log('Ejecutando:', cmd)
         
         const {stdout, stderr} = await execAsync(cmd, {
-          timeout: 180000, // 3 minutos
-          maxBuffer: 1024 * 1024 * 100 // 100MB buffer
+          timeout: 180000,
+          maxBuffer: 1024 * 1024 * 100
         })
         
-        console.log('yt-dlp output:', stdout)
-        if (stderr) console.log('yt-dlp stderr:', stderr)
+        console.log('yt-dlp completado')
+        if (stderr && stderr.includes('ERROR')) {
+          throw new Error(stderr)
+        }
         
-        localFile = `${outputPath}.mp3`
+        // Buscar el archivo descargado (puede ser .webm, .m4a, .opus)
+        const files = fs.readdirSync(tmpDir).filter(f => f.startsWith(`${timestamp}_${sanitizedTitle}`))
+        if (files.length > 0) {
+          localFile = path.join(tmpDir, files[0])
+          console.log('✅ Archivo descargado:', localFile)
+        } else {
+          throw new Error('Archivo no encontrado después de la descarga')
+        }
         
       } else {
         // Descargar video en MP4
@@ -93,29 +101,24 @@ handler.before = async (m, {conn}) => {
         console.log('Ejecutando:', cmd)
         
         const {stdout, stderr} = await execAsync(cmd, {
-          timeout: 300000, // 5 minutos
-          maxBuffer: 1024 * 1024 * 200 // 200MB buffer
+          timeout: 300000,
+          maxBuffer: 1024 * 1024 * 200
         })
         
-        console.log('yt-dlp output:', stdout)
-        if (stderr) console.log('yt-dlp stderr:', stderr)
+        console.log('yt-dlp completado')
+        if (stderr && stderr.includes('ERROR')) {
+          throw new Error(stderr)
+        }
         
-        localFile = `${outputPath}.mp4`
-      }
-      
-      // Verificar si el archivo existe
-      if (!fs.existsSync(localFile)) {
-        // Buscar el archivo con cualquier extensión
+        // Buscar el archivo descargado
         const files = fs.readdirSync(tmpDir).filter(f => f.startsWith(`${timestamp}_${sanitizedTitle}`))
         if (files.length > 0) {
           localFile = path.join(tmpDir, files[0])
-          console.log('Archivo encontrado:', localFile)
+          console.log('✅ Archivo descargado:', localFile)
         } else {
           throw new Error('Archivo no encontrado después de la descarga')
         }
       }
-      
-      console.log('✅ Descarga completada:', localFile)
       
     } catch (error) {
       console.error('Error en yt-dlp:', error)
@@ -125,21 +128,38 @@ handler.before = async (m, {conn}) => {
     // Verificar tamaño del archivo
     const stats = fs.statSync(localFile)
     const fileSize = stats.size
-    console.log(`Tamaño del archivo: ${(fileSize / 1024 / 1024).toFixed(2)} MB`)
+    const fileSizeMB = (fileSize / 1024 / 1024).toFixed(2)
+    console.log(`Tamaño del archivo: ${fileSizeMB} MB`)
+    
+    // Determinar el tipo MIME correcto
+    const ext = path.extname(localFile).toLowerCase()
+    let mimetype = 'audio/mpeg'
+    
+    if (isAudio) {
+      if (ext === '.webm' || ext === '.opus') {
+        mimetype = 'audio/ogg'
+      } else if (ext === '.m4a') {
+        mimetype = 'audio/mp4'
+      } else if (ext === '.mp3') {
+        mimetype = 'audio/mpeg'
+      }
+    } else {
+      mimetype = 'video/mp4'
+    }
     
     // Enviar el archivo
     if (isAudio) {
       if (fileSize > LimitAud) {
         await conn.sendMessage(m.chat, {
           document: fs.readFileSync(localFile),
-          mimetype: 'audio/mpeg',
-          fileName: `${userVideoData.title}.mp3`
+          mimetype: mimetype,
+          fileName: `${userVideoData.title}${ext}`
         }, {quoted: m})
       } else {
         await conn.sendMessage(m.chat, {
           audio: fs.readFileSync(localFile),
-          mimetype: 'audio/mpeg',
-          fileName: `${userVideoData.title}.mp3`,
+          mimetype: mimetype,
+          fileName: `${userVideoData.title}${ext}`,
           ptt: false
         }, {quoted: m})
       }
@@ -147,14 +167,14 @@ handler.before = async (m, {conn}) => {
       if (fileSize > LimitVid) {
         await conn.sendMessage(m.chat, {
           document: fs.readFileSync(localFile),
-          mimetype: 'video/mp4',
+          mimetype: mimetype,
           fileName: `${userVideoData.title}.mp4`,
           caption: `⟡ *${userVideoData.title}*\n> ${wm}`
         }, {quoted: m})
       } else {
         await conn.sendMessage(m.chat, {
           video: fs.readFileSync(localFile),
-          mimetype: 'video/mp4',
+          mimetype: mimetype,
           fileName: `${userVideoData.title}.mp4`,
           caption: `⟡ *${userVideoData.title}*\n> ${wm}`
         }, {quoted: m})
@@ -173,7 +193,7 @@ handler.before = async (m, {conn}) => {
     
   } catch (error) {
     console.error('Error en descarga:', error)
-    await conn.reply(m.chat, `❌ Error al descargar: ${error.message}\n\nIntenta con un video más corto o espera unos minutos.`, m)
+    await conn.reply(m.chat, `❌ Error al descargar: ${error.message}\n\n💡 *Tip*: Si este error persiste, instala FFmpeg para mejores resultados.`, m)
   } finally {
     delete tempStorage[m.sender]
   }
